@@ -3,18 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的个人网站</title>
+    <title>游戏合集主页</title>
     <style>
-        *{margin:0;padding:0;box-sizing: border-box;}
-        body{background:#111;color:#fff;text-align:center;padding-top:100px;}
-        h1{font-size:40px;margin-bottom:30px;color:#42b983;}
-        p{font-size:18px;margin-bottom:20px;}
-        button{padding:12px 30px;font-size:16px;background:#42b983;border:none;color:#000;border-radius:6px;cursor:pointer;}
+        * {margin:0; padding:0; box-sizing:border-box}
+        body {background:#111; color:#fff; text-align:center; padding-top:80px}
+        h1 {font-size:42px; margin-bottom:50px; color:#4cd964}
+        .game-box {display:flex; gap:25px; justify-content:center; flex-wrap:wrap; max-width:900px; margin:0 auto}
+        a {
+            display:block;
+            width:180px;
+            padding:22px 0;
+            background:#222;
+            color:#4cd964;
+            text-decoration:none;
+            font-size:20px;
+            border:2px solid #4cd964;
+            border-radius:8px;
+            transition:0.2s;
+        }
+        a:hover {background:#4cd964; color:#111}
     </style>
 </head>
 <body>
-    <h1>欢迎访问我的公开网站</h1>
-    <p>这是通过Github Pages部署、全网可访问的简易网站</p>
-    <button onclick="alert('网站部署成功！')">点击测试交互</button>
+    <h1>休闲小游戏合集</h1>
+    <div class="game-box">
+        <!-- 贪吃蛇链接，对应snake.html -->
+        <a href="snake.html">贪吃蛇</a>
+        <!-- 以后新增游戏只在这里加一行a标签，不用动其他代码 -->
+        <!-- <a href="2048.html">2048</a> -->
+        <!-- <a href="mine.html">扫雷</a> -->
+    </div>
 </body>
 </html>
