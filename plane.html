@@ -20,6 +20,23 @@
             font-family: 'Press Start 2P', 'Courier New', monospace;
             overflow: hidden;
         }
+        /* 新增外层总容器：纵向居中排布游戏框+返回按钮 */
+        .page-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+        /* 新增返回按钮样式 */
+        .back-btn {
+            width: 120px;
+            text-align: center;
+            padding: 8px;
+            background: #0c0;
+            color: #000;
+            text-decoration: none;
+            border-radius: 4px;
+        }
 
         .game-wrapper {
             position: relative;
@@ -175,44 +192,49 @@
     </style>
 </head>
 <body>
-<div class="game-wrapper">
-    <canvas id="gameCanvas" width="520" height="780"></canvas>
+<!-- 新增外层容器 -->
+<div class="page-box">
+    <div class="game-wrapper">
+        <canvas id="gameCanvas" width="520" height="780"></canvas>
 
-    <!-- HUD -->
-    <div class="hud" id="hud">
-        <div class="hud-item hud-score" id="scoreDisplay">SCORE: 0</div>
-        <div class="hud-item hud-timer" id="timerDisplay">TIME: 0s</div>
-        <div class="hud-item hud-lives" id="livesDisplay">
-            <span>HP</span>
-            <span class="life-icon">❤</span>
-            <span class="life-icon">❤</span>
-            <span class="life-icon">❤</span>
+        <!-- HUD -->
+        <div class="hud" id="hud">
+            <div class="hud-item hud-score" id="scoreDisplay">SCORE: 0</div>
+            <div class="hud-item hud-timer" id="timerDisplay">TIME: 0s</div>
+            <div class="hud-item hud-lives" id="livesDisplay">
+                <span>HP</span>
+                <span class="life-icon">❤</span>
+                <span class="life-icon">❤</span>
+                <span class="life-icon">❤</span>
+            </div>
+        </div>
+
+        <!-- 难度指示条 -->
+        <div class="difficulty-bar">
+            <div class="difficulty-fill" id="difficultyFill"></div>
+        </div>
+
+        <!-- 开始界面 -->
+        <div class="overlay" id="startScreen">
+            <div class="overlay-title">◈ 像素战机 ◈</div>
+            <div class="overlay-subtitle">↑↓←→ 移动 | SPACE 射击</div>
+            <button class="overlay-btn" id="startBtn">开 始 游 戏</button>
+        </div>
+
+        <!-- 倒计时界面 -->
+        <div class="overlay hidden" id="countdownScreen">
+            <div class="countdown-number" id="countdownNumber">3</div>
+        </div>
+
+        <!-- 结束界面 -->
+        <div class="overlay hidden" id="gameOverScreen">
+            <div class="overlay-title">💥 坠毁 💥</div>
+            <div class="overlay-score" id="finalScore">最终得分: 0</div>
+            <button class="overlay-btn" id="restartBtn">再 来 一 局</button>
         </div>
     </div>
-
-    <!-- 难度指示条 -->
-    <div class="difficulty-bar">
-        <div class="difficulty-fill" id="difficultyFill"></div>
-    </div>
-
-    <!-- 开始界面 -->
-    <div class="overlay" id="startScreen">
-        <div class="overlay-title">◈ 像素战机 ◈</div>
-        <div class="overlay-subtitle">↑↓←→ 移动 | SPACE 射击</div>
-        <button class="overlay-btn" id="startBtn">开 始 游 戏</button>
-    </div>
-
-    <!-- 倒计时界面 -->
-    <div class="overlay hidden" id="countdownScreen">
-        <div class="countdown-number" id="countdownNumber">3</div>
-    </div>
-
-    <!-- 结束界面 -->
-    <div class="overlay hidden" id="gameOverScreen">
-        <div class="overlay-title">💥 坠毁 💥</div>
-        <div class="overlay-score" id="finalScore">最终得分: 0</div>
-        <button class="overlay-btn" id="restartBtn">再 来 一 局</button>
-    </div>
+    <!-- 返回按钮移到游戏框下方，自动居中 -->
+    <a class="back-btn" href="index.html">返回主页</a>
 </div>
 
 <script>
@@ -725,7 +747,6 @@
             updateLivesDisplay();
             gameOverScreen.classList.add('hidden');
             startScreen.classList.add('hidden');
-            countdownScreen.classList.add('hidden');
 
             startCountdown(() => {
                 gameRunning = true;
@@ -788,19 +809,16 @@
             animFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // ---------- 键盘事件 ----------
-        function handleKeyDown(e) {
-            keys[e.key] = true;
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Space'].includes(e.key)) {
-                e.preventDefault();
-            }
-        }
+        // ---------- 窗口失焦时释放按键 ----------
+        window.addEventListener('blur', () => {
+            keys = {};
+        });
 
-        function handleKeyUp(e) {
-            keys[e.key] = false;
-        }
+        // ---------- 重启按钮 ----------
+        startBtn.addEventListener('click', resetGame);
+        restartBtn.addEventListener('click', resetGame);
 
-        // ---------- 初始化 ----------
+        // ---------- 启动 ----------
         function init() {
             initStars();
             player = new Player();
@@ -808,12 +826,17 @@
             window.addEventListener('keydown', handleKeyDown);
             window.addEventListener('keyup', handleKeyUp);
 
-            startBtn.addEventListener('click', resetGame);
-            restartBtn.addEventListener('click', resetGame);
-
             animFrameId = requestAnimationFrame(gameLoop);
         }
-
+        function handleKeyDown(e) {
+            keys[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Space'].includes(e.key)) {
+                e.preventDefault();
+            }
+        }
+        function handleKeyUp(e) {
+            keys[e.key] = false;
+        }
         init();
 
         window.addEventListener('beforeunload', () => {
@@ -823,6 +846,5 @@
         });
     })();
 </script>
-<a style="display:block;width:120px;margin:30px auto;text-align:center;padding:8px;background:#0c0;color:#000;text-decoration:none;border-radius:4px;" href="index.html">返回主页</a>
 </body>
 </html>
