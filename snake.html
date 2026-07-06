@@ -66,12 +66,13 @@ function createOneObs(){
     return obs;
 }
 
-// 根据得分更新障碍物数量
+// 根据得分更新障碍物数量【修复点：先清空再生成】
 function updateObstacleByScore(){
+    obstacles = []; // 先清空所有旧障碍
     let targetNum = 3 + Math.floor(score / addObsThreshold);
     if(targetNum > maxObsLimit) targetNum = maxObsLimit;
-    // 现有障碍不够就新增
-    while(obstacles.length < targetNum){
+    // 生成对应分数数量的障碍
+    for(let i = 0; i < targetNum; i++){
         obstacles.push(createOneObs());
     }
 }
@@ -152,7 +153,6 @@ function gameOver(){
     score=0;
     speed=8;
     scoreText.textContent="得分：0";
-    obstacles = [];
     updateObstacleByScore();
     food = createFood();
 }
@@ -166,6 +166,11 @@ function runGame(){
     setTimeout(runGame, 1000/speed);
 }
 runGame();
+
+// ==========新增屏蔽鼠标右键菜单代码==========
+canvas.addEventListener("contextmenu", function(e){
+    e.preventDefault();
+});
 </script>
 </body>
 </html>
