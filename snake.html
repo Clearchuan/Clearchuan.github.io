@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>贪吃蛇</title>
 <style>
-*{margin:0;padding:0;background:#000}
+*{margin:0;padding:0;background:#000;user-select:none;}
 body{display:flex;flex-direction:column;align-items:center;margin-top:30px}
 #score{color:#fff;font-size:26px;margin-bottom:12px}
 canvas{border:3px solid #333}
@@ -28,10 +28,9 @@ let snake = [{x:10,y:10}];
 let dx = 1, dy = 0;
 let food = {};
 let obstacles = [];
-let maxObsLimit = 10; // 障碍物上限10个
-let addObsThreshold = 50; // 每50分增加一个障碍
+let maxObsLimit = 10;
+let addObsThreshold = 50;
 
-// 生成食物，避开蛇和障碍物
 function createFood(){
     let newFood;
     while(!newFood || isOverlap(newFood)){
@@ -43,7 +42,6 @@ function createFood(){
     return newFood;
 }
 
-// 判断坐标是否和蛇/障碍物重叠
 function isOverlap(pos){
     for(let seg of snake){
         if(seg.x === pos.x && seg.y === pos.y) return true;
@@ -54,7 +52,6 @@ function isOverlap(pos){
     return false;
 }
 
-// 生成单个障碍物
 function createOneObs(){
     let obs;
     while(!obs || isOverlap(obs)){
@@ -66,44 +63,56 @@ function createOneObs(){
     return obs;
 }
 
-// 根据得分更新障碍物数量【修复点：先清空再生成】
 function updateObstacleByScore(){
-    obstacles = []; // 先清空所有旧障碍
+    obstacles = [];
     let targetNum = 3 + Math.floor(score / addObsThreshold);
     if(targetNum > maxObsLimit) targetNum = maxObsLimit;
-    // 生成对应分数数量的障碍
     for(let i = 0; i < targetNum; i++){
         obstacles.push(createOneObs());
     }
 }
 
-// 键盘控制
+// ==========修复转向逻辑==========
 document.addEventListener("keydown",e=>{
-    if(e.key==="ArrowUp"&&dy!==1){dx=0;dy=-1}
-    if(e.key==="ArrowDown"&&dy!==-1){dx=0;dy=1}
-    if(e.key==="ArrowLeft"&&dx!==1){dx=-1;dy=0}
-    if(e.key==="ArrowRight"&&dx!==0){dx=1;dy=0}
+    // 向上：只有当前不向下才能切换
+    if(e.key==="ArrowUp" && dy !== 1){
+        dx = 0;
+        dy = -1;
+    }
+    // 向下：只有当前不向上才能切换
+    if(e.key==="ArrowDown" && dy !== -1){
+        dx = 0;
+        dy = 1;
+    }
+    // 向左：只有当前不向右才能切换
+    if(e.key==="ArrowLeft" && dx !== 1){
+        dx = -1;
+        dy = 0;
+    }
+    // 向右：只有当前不向左才能切换
+    if(e.key==="ArrowRight" && dx !== -1){
+        dx = 1;
+        dy = 0;
+    }
 })
 
-// 游戏主循环
 function loop(){
     let head = {x:snake[0].x + dx, y:snake[0].y + dy};
 
-    // 穿墙逻辑：超出边界直接传到对面
+    // 穿墙逻辑
     if(head.x < 0) head.x = gridMax - 1;
     if(head.x >= gridMax) head.x = 0;
     if(head.y < 0) head.y = gridMax - 1;
     if(head.y >= gridMax) head.y = 0;
 
-    // 撞到自身判定
+    // 撞自身结束
     for(let seg of snake){
         if(seg.x === head.x && seg.y === head.y){
             gameOver();
             return;
         }
     }
-
-    // 撞到障碍物判定
+    // 撞障碍物结束
     for(let obs of obstacles){
         if(obs.x === head.x && obs.y === head.y){
             gameOver();
@@ -113,39 +122,26 @@ function loop(){
 
     snake.unshift(head);
 
-    // 吃到食物
     if(head.x === food.x && head.y === food.y){
         score += 10;
         scoreText.textContent = "得分：" + score;
         food = createFood();
-        updateObstacleByScore(); // 吃完更新障碍数量
+        updateObstacleByScore();
         if(speed < 16) speed += 0.2;
     }else{
         snake.pop();
     }
 
-    // 绘制背景
     ctx.fillStyle="#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    // 绘制障碍物（灰色方块）
     ctx.fillStyle="#666";
-    obstacles.forEach(item=>{
-        ctx.fillRect(item.x*size, item.y*size, size-2, size-2);
-    })
-
-    // 绘制食物（红色）
+    obstacles.forEach(item=>ctx.fillRect(item.x*size, item.y*size, size-2, size-2));
     ctx.fillStyle="#f33";
     ctx.fillRect(food.x*size, food.y*size, size-2, size-2);
-
-    // 绘制蛇（绿色）
     ctx.fillStyle="#0f0";
-    snake.forEach(item=>{
-        ctx.fillRect(item.x*size, item.y*size, size-2, size-2);
-    })
+    snake.forEach(item=>ctx.fillRect(item.x*size, item.y*size, size-2, size-2));
 }
 
-// 游戏结束重置
 function gameOver(){
     alert("游戏结束！撞到障碍物或自身");
     snake = [{x:10,y:10}];
@@ -157,20 +153,13 @@ function gameOver(){
     food = createFood();
 }
 
-// 初始化初始3个障碍物
 updateObstacleByScore();
 food = createFood();
-
 function runGame(){
     loop();
     setTimeout(runGame, 1000/speed);
 }
 runGame();
-
-// ==========新增屏蔽鼠标右键菜单代码==========
-canvas.addEventListener("contextmenu", function(e){
-    e.preventDefault();
-});
 </script>
 </body>
 </html>
