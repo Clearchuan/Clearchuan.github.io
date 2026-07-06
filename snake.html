@@ -26,58 +26,136 @@ let score = 0;
 let snake = [{x:10,y:10}];
 let dx = 1, dy = 0;
 let food = {};
+// 障碍物数组
+let obstacles = [];
 
+// 生成食物
 function createFood(){
-    return {
-        x:Math.floor(Math.random()*canvas.width/size),
-        y:Math.floor(Math.random()*canvas.height/size)
+    let newFood;
+    // 食物不能生成在蛇、障碍物上
+    while(!newFood || isOverlap(newFood)){
+        newFood = {
+            x:Math.floor(Math.random() * canvas.width / size),
+            y:Math.floor(Math.random() * canvas.height / size)
+        }
+    }
+    return newFood;
+}
+
+// 判断坐标是否和蛇/障碍物重叠
+function isOverlap(pos){
+    // 和蛇身体重叠
+    for(let seg of snake){
+        if(seg.x === pos.x && seg.y === pos.y) return true;
+    }
+    // 和障碍物重叠
+    for(let obs of obstacles){
+        if(obs.x === pos.x && obs.y === pos.y) return true;
+    }
+    return false;
+}
+
+// 随机生成障碍物
+function createObstacle(num = 12){
+    obstacles = [];
+    for(let i = 0; i < num; i++){
+        let obs;
+        while(!obs || isOverlap(obs)){
+            obs = {
+                x:Math.floor(Math.random() * canvas.width / size),
+                y:Math.floor(Math.random() * canvas.height / size)
+            }
+        }
+        obstacles.push(obs);
     }
 }
-food = createFood();
 
+// 键盘控制
 document.addEventListener("keydown",e=>{
     if(e.key==="ArrowUp"&&dy!==1){dx=0;dy=-1}
     if(e.key==="ArrowDown"&&dy!==-1){dx=0;dy=1}
     if(e.key==="ArrowLeft"&&dx!==1){dx=-1;dy=0}
-    if(e.key==="ArrowRight"&&dx===0){dx=1;dy=0}
+    if(e.key==="ArrowRight"&&dx!==0){dx=1;dy=0}
 })
 
+// 游戏主循环
 function loop(){
-    let head = {x:snake[0].x+dx,y:snake[0].y+dy};
-    if(head.x<0) head.x = canvas.width/size -1;
-    if(head.x>=canvas.width/size) head.x=0;
-    if(head.y<0) head.y=canvas.height/size -1;
-    if(head.y>=canvas.height/size) head.y=0;
+    let head = {x:snake[0].x + dx, y:snake[0].y + dy};
 
+    // 撞边界判定
+    if(head.x < 0 || head.x >= canvas.width/size || head.y <0 || head.y >= canvas.height/size){
+        gameOver();
+        return;
+    }
+
+    // 撞到自身判定
     for(let seg of snake){
-        if(seg.x===head.x&&seg.y===head.y){
-            alert("游戏结束，得分："+score);
-            snake = [{x:10,y:10}];
-            dx=1;dy=0;score=0;speed=8;
-            food=createFood();
-            scoreText.textContent="得分：0";
+        if(seg.x === head.x && seg.y === head.y){
+            gameOver();
             return;
         }
     }
+
+    // 撞到障碍物判定
+    for(let obs of obstacles){
+        if(obs.x === head.x && obs.y === head.y){
+            gameOver();
+            return;
+        }
+    }
+
     snake.unshift(head);
-    if(head.x===food.x&&head.y===food.y){
+
+    // 吃到食物
+    if(head.x === food.x && head.y === food.y){
         score += 10;
-        scoreText.textContent="得分："+score;
-        food=createFood();
-        if(speed<16)speed+=0.3;
+        scoreText.textContent = "得分：" + score;
+        food = createFood();
+        if(speed < 16) speed += 0.2;
     }else{
         snake.pop();
     }
+
+    // 绘制背景
     ctx.fillStyle="#000";
     ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // 绘制障碍物（灰色方块）
+    ctx.fillStyle="#666";
+    obstacles.forEach(item=>{
+        ctx.fillRect(item.x*size, item.y*size, size-2, size-2);
+    })
+
+    // 绘制食物（红色）
     ctx.fillStyle="#f33";
-    ctx.fillRect(food.x*size,food.y*size,size-2,size-2);
+    ctx.fillRect(food.x*size, food.y*size, size-2, size-2);
+
+    // 绘制蛇（绿色）
     ctx.fillStyle="#0f0";
-    snake.forEach(item=>ctx.fillRect(item.x*size,item.y*size,size-2,size-2));
+    snake.forEach(item=>{
+        ctx.fillRect(item.x*size, item.y*size, size-2, size-2);
+    })
 }
+
+// 游戏结束重置
+function gameOver(){
+    alert("游戏结束！得分："+score+"\n撞到障碍物/边界/自身");
+    snake = [{x:10,y:10}];
+    dx=1; dy=0;
+    score=0;
+    speed=8;
+    scoreText.textContent="得分：0";
+    createObstacle();
+    food = createFood();
+}
+
+// 初始化障碍物+食物
+createObstacle();
+food = createFood();
+
 function runGame(){
     loop();
-    setTimeout(runGame,1000/speed);
+    setTimeout(runGame, 1000/speed);
 }
 runGame();
 </script>
