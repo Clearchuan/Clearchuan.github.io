@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>游戏合集主页</title>
+    <title>登录 - 游戏合集</title>
     <style>
         * {margin:0; padding:0; box-sizing:border-box}
         body {
@@ -16,164 +16,120 @@
             background-color: rgba(0,0,0,0.65);
             color:#fff;
             text-align:center;
-            padding-top:80px;
             min-height: 100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
         }
-        h1 {font-size:42px; margin-bottom:50px; color:#4cd964}
-        .game-box {display:flex; gap:25px; justify-content:center; flex-wrap:wrap; max-width:900px; margin:0 auto}
-        /* 游戏卡片容器 */
-        .game-card {
-            width:180px;
-            border:2px solid #4cd964;
-            border-radius:8px;
-            overflow:hidden;
-            transition:0.2s;
-            background:#222;
+        .login-box {
+            width: 360px;
+            background: #222;
+            border: 2px solid #4cd964;
+            border-radius: 10px;
+            padding: 35px 25px;
         }
-        .game-card:hover {
-            transform: scale(1.05);
-            box-shadow: 0 20px #4cd96477;
+        .login-box h2 {
+            color: #4cd964;
+            margin-bottom: 30px;
+            font-size: 28px;
         }
-        /* 封面图片铺满卡片 */
-        .game-card img {
-            width:100%;
-            height:140px;
-            object-fit: cover;
-            display:block;
+        .login-item {
+            margin-bottom: 20px;
+            text-align: left;
         }
-        /* 底部文字标题 */
-        .game-name {
-            display:block;
-            padding:12px 0;
-            color:#4cd964;
-            text-decoration:none;
-            font-size:20px;
+        .login-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
         }
-        .game-card:hover .game-name {
-            background:#4cd964;
-            color:#111;
+        .login-item input {
+            width: 100%;
+            height: 42px;
+            padding: 0 12px;
+            font-size: 16px;
+            background: #111;
+            border: 1px solid #4cd964;
+            border-radius: 4px;
+            color: #fff;
+            outline: none;
         }
-        .logout-btn{
-            position:fixed;
-            top:20px;
-            right:30px;
-            padding:8px 16px;
-            background:#4cd964;
-            color:#111;
-            border:none;
-            border-radius:6px;
-            font-size:16px;
-            cursor:pointer;
+        .login-item input:focus {
+            box-shadow: 0 0 8px #4cd96477;
+        }
+        #loginBtn {
+            width: 100%;
+            height: 46px;
+            margin-top: 10px;
+            background: #4cd964;
+            color: #111;
+            border: none;
+            border-radius: 4px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #loginBtn:hover {
+            background: #3bc053;
+        }
+        .tip-text {
+            color: #ff7777;
+            font-size: 14px;
+            margin-top: 12px;
+            display: none;
         }
     </style>
 </head>
 <body>
-    <button class="logout-btn" id="logout">退出登录</button>
-    <h1>休闲小游戏合集</h1>
-    <div class="game-box">
-        <!-- 贪吃蛇图片入口 -->
-        <div class="game-card">
-            <a href="snake.html">
-                <img src="snake-preview.png" alt="贪吃蛇">
-            </a>
-            <a class="game-name" href="snake.html">贪吃蛇</a>
+    <div class="login-box">
+        <h2>游戏合集登录</h2>
+        <div class="login-item">
+            <label>昵称</label>
+            <input type="text" id="nickname" placeholder="请输入昵称">
         </div>
-        <!-- 坦克大战图片入口 -->
-        <div class="game-card">
-            <a href="tank.html">
-                <img src="tank-preview.png" alt="坦克大战">
-            </a>
-            <a class="game-name" href="tank.html">坦克大战</a>
+        <div class="login-item">
+            <label>电子邮箱</label>
+            <input type="email" id="email" placeholder="请输入邮箱">
         </div>
-        <!-- 像素飞机图片入口 -->
-        <div class="game-card">
-            <a href="plane.html">
-                <img src="plane-preview.png" alt="像素飞机">
-            </a>
-            <a class="game-name" href="plane.html">像素飞机</a>
+        <div class="login-item">
+            <label>密码</label>
+            <input type="password" id="pwd" placeholder="请输入密码">
         </div>
-        <!-- 赛尔号肉鸽游戏 -->
-        <div class="game-card">
-            <a href="https://4khx59uaxrunk.aiforce.cloud/app/app_179kg15crwg" target="_blank">
-                <img src="seer-preview.png" alt="赛尔号肉鸽游戏">
-            </a>
-            <a class="game-name" href="https://4khx59uaxrunk.aiforce.cloud/app/app_179kg15crwg" target="_blank">赛尔号肉鸽游戏</a>
-        </div>
-        <!-- 俄罗斯方块 -->
-        <div class="game-card">
-            <a href="tetris.html">
-                <img src="tetris-preview.png" alt="俄罗斯方块">
-            </a>
-            <a class="game-name" href="tetris.html">俄罗斯方块</a>
-        </div>
-        <!-- 2D赛车 -->
-        <div class="game-card">
-            <a href="Racing.html">
-                <img src="racing-preview.png" alt="2D赛车">
-            </a>
-            <a class="game-name" href="Racing.html">2D赛车</a>
-        </div>
-        <!-- 井字棋 -->
-        <div class="game-card">
-            <a href="tictactoe.html">
-                <img src="tictactoe-preview.png" alt="井字棋">
-            </a>
-            <a class="game-name" href="tictactoe.html">井字棋</a>
-        </div>
-        <!-- 打砖块 -->
-        <div class="game-card">
-            <a href="breakout.html">
-                <img src="breakout-preview.png" alt="打砖块">
-            </a>
-            <a class="game-name" href="breakout.html">打砖块</a>
-        </div>
-        <!-- 2048 -->
-        <div class="game-card">
-            <a href="2048.html">
-                <img src="2048-preview.png" alt="2048">
-            </a>
-            <a class="game-name" href="2048.html">2048</a>
-        </div>
-        <!-- 猜单词 -->
-        <div class="game-card">
-            <a href="guessword.html">
-                <img src="guessword-preview.png" alt="猜单词">
-            </a>
-            <a class="game-name" href="guessword.html">猜单词</a>
-        </div>
-        <!-- 拼图 -->
-        <div class="game-card">
-            <a href="puzzle.html">
-                <img src="puzzle-preview.png" alt="拼图">
-            </a>
-            <a class="game-name" href="puzzle.html">拼图</a>
-        </div>
-        <!-- 词语接龙 -->
-        <div class="game-card">
-            <a href="wordchain.html">
-                <img src="wordchain-preview.png" alt="词语接龙">
-            </a>
-            <a class="game-name" href="wordchain.html">词语接龙</a>
-        </div>
-        <!-- 记忆翻牌 -->
-        <div class="game-card">
-            <a href="memory.html">
-                <img src="memory-preview.png" alt="记忆翻牌">
-            </a>
-            <a class="game-name" href="memory.html">记忆翻牌</a>
-        </div>
+        <div class="tip-text" id="tip">请填写完整昵称、邮箱和密码！</div>
+        <button id="loginBtn">登录进入游戏合集</button>
     </div>
 
     <script>
-        // 检测登录状态，未登录跳转到登录页
-        const user = localStorage.getItem('gameUser');
-        if (!user) {
-            location.href = "login.html";
+        const loginBtn = document.getElementById('loginBtn');
+        const nickname = document.getElementById('nickname');
+        const email = document.getElementById('email');
+        const pwd = document.getElementById('pwd');
+        const tip = document.getElementById('tip');
+
+        // 已经登录过直接跳主页
+        if(localStorage.getItem('gameUser')){
+            location.href = "index.html";
         }
-        // 退出登录按钮
-        document.getElementById('logout').addEventListener('click', ()=>{
-            localStorage.removeItem('gameUser');
-            location.href = "login.html";
+
+        loginBtn.addEventListener('click', ()=>{
+            const nameVal = nickname.value.trim();
+            const emailVal = email.value.trim();
+            const pwdVal = pwd.value.trim();
+            tip.style.display = 'none';
+
+            // 空值校验
+            if(!nameVal || !emailVal || !pwdVal) {
+                tip.style.display = 'block';
+                return;
+            }
+            // 本地存储登录信息
+            localStorage.setItem('gameUser', JSON.stringify({
+                nick: nameVal,
+                email: emailVal,
+                pass: pwdVal
+            }));
+            // 登录成功跳转主页
+            location.href = "index.html";
         })
     </script>
 </body>
