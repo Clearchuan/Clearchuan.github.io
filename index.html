@@ -53,9 +53,25 @@
             background:#4cd964;
             color:#111;
         }
+        /* 新增退出按钮样式 */
+        .logout-btn{
+            position:fixed;
+            top:20px;
+            right:30px;
+            padding:8px 16px;
+            background:#4cd964;
+            color:#111;
+            border:none;
+            border-radius:6px;
+            font-size:16px;
+            cursor:pointer;
+        }
     </style>
 </head>
 <body>
+    <!-- 退出登录按钮 -->
+    <button class="logout-btn" id="logout">退出登录</button>
+
     <h1>休闲小游戏合集</h1>
     <div class="game-box">
         <!-- 贪吃蛇图片入口 -->
@@ -114,35 +130,35 @@
             </a>
             <a class="game-name" href="breakout.html">打砖块</a>
         </div>
-        <!-- 新增：2048 -->
+        <!-- 2048 -->
         <div class="game-card">
             <a href="2048.html">
                 <img src="2048-preview.png" alt="2048">
             </a>
             <a class="game-name" href="2048.html">2048</a>
         </div>
-        <!-- 新增：猜单词 guessword -->
+        <!-- 猜单词 -->
         <div class="game-card">
             <a href="guessword.html">
                 <img src="guessword-preview.png" alt="猜单词">
             </a>
             <a class="game-name" href="guessword.html">猜单词</a>
         </div>
-        <!-- 新增：拼图 puzzle -->
+        <!-- 拼图 -->
         <div class="game-card">
             <a href="puzzle.html">
                 <img src="puzzle-preview.png" alt="拼图">
             </a>
             <a class="game-name" href="puzzle.html">拼图</a>
         </div>
-        <!-- 新增：词语接龙 wordchain -->
+        <!-- 词语接龙 -->
         <div class="game-card">
             <a href="wordchain.html">
                 <img src="wordchain-preview.png" alt="词语接龙">
             </a>
             <a class="game-name" href="wordchain.html">词语接龙</a>
         </div>
-        <!-- 新增：记忆翻牌 memory -->
+        <!-- 记忆翻牌 -->
         <div class="game-card">
             <a href="memory.html">
                 <img src="memory-preview.png" alt="记忆翻牌">
@@ -150,5 +166,17 @@
             <a class="game-name" href="memory.html">记忆翻牌</a>
         </div>
     </div>
+
+    <script>
+        // 判断是否登录，未登录自动跳转登录页
+        if(!localStorage.getItem('gameUser')){
+            location.href = "login.html";
+        }
+        // 退出登录功能
+        document.getElementById('logout').addEventListener('click',()=>{
+            localStorage.removeItem('gameUser');
+            location.href = "login.html";
+        })
+    </script>
 </body>
 </html>
