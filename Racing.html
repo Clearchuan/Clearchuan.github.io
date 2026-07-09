@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D RACING v2.1 - 智能联机版</title>
+    <title>2D RACING v3.0</title>
+    <!-- 引入 Socket.io 联机通信库 -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
@@ -149,7 +150,7 @@
 
 <div id="gameWrapper">
     <div id="scoreBoard">SCORE: <span id="score">0</span></div>
-    <div id="networkStatus">📡 正在构筑点对点网络...</div>
+    <div id="networkStatus" style="display: none;">未连接到服务器...</div>
     
     <div id="tireBoard">
         <div id="tireLabel">WHITE TIRE</div>
@@ -157,16 +158,38 @@
     </div>
     
     <canvas id="gameCanvas" width="600" height="600"></canvas>
-    
-    <div id="startScreen" class="overlay">
-        <h1>2D RACING</h1>
-        <p class="controls">按 <b>左 / 右</b> 或 <b>A / D</b> 键切换车道</p>
-        <button class="diff-btn btn-easy" onclick="startGame('easy')">EASY</button>
-        <button class="diff-btn btn-normal" onclick="startGame('normal')">NORMAL</button>
-        <button class="diff-btn btn-hard" onclick="startGame('hard')">HARD</button>
-        <button class="diff-btn btn-expert" onclick="startGame('expert')">EXPERT</button>
+
+    <!-- 【新增】1. 模式选择界面 -->
+    <div id="modeScreen" class="overlay">
+        <h1>2D RACING v3.0</h1>
+        <p class="controls">选择你的游玩方式</p>
+        <button class="diff-btn btn-normal" onclick="selectMode('single')">单机模式 (Single)</button>
+        <button class="diff-btn" style="background-color: #9b59b6;" onclick="selectMode('multi')">联机对战 (Multiplayer)</button>
     </div>
 
+    <!-- 【新增】2. 联机大厅界面 -->
+    <div id="roomScreen" class="overlay" style="display: none;">
+        <h1>联机大厅</h1>
+        <p class="controls">请输入房间号与对手汇合</p>
+        <input type="text" id="roomInput" value="101" placeholder="房间号 (如: 101)" style="padding: 10px; font-size: 18px; border-radius: 5px; border: none; text-align: center; margin-bottom: 20px; width: 180px;">
+        <button class="diff-btn btn-easy" onclick="joinRoom()">加入房间</button>
+        <button class="diff-btn" style="background-color: #7f8c8d;" onclick="backToMode()">返回</button>
+        <div id="waitPrompt" style="display:none; color: #f1c40f; font-weight: bold; margin-top: 20px; font-size: 18px;">正在等待对手接入...</div>
+    </div>
+    
+    <!-- 3. 难度选择与开始界面 -->
+    <div id="startScreen" class="overlay" style="display: none;">
+        <h1 id="startScreenTitle">选择难度</h1>
+        <p class="controls">按 <b>左 / 右</b> 或 <b>A / D</b> 键切换车道</p>
+        <div id="difficultyButtons">
+            <button class="diff-btn btn-easy" onclick="startGame('easy')">EASY</button>
+            <button class="diff-btn btn-normal" onclick="startGame('normal')">NORMAL</button>
+            <button class="diff-btn btn-hard" onclick="startGame('hard')">HARD</button>
+            <button class="diff-btn btn-expert" onclick="startGame('expert')">EXPERT</button>
+        </div>
+    </div>
+
+    <!-- 轮胎选择界面 -->
     <div id="tireSelectionScreen" class="overlay">
         <h2>SELECT TIRE</h2>
         <div id="selectionTimer">5</div>
@@ -181,12 +204,13 @@
         </button>
     </div>
 
+    <!-- 游戏结束界面 -->
     <div id="gameOverScreen" class="overlay">
         <h1 id="gameOverReason">CRASHED!</h1>
         <div class="score-display">最终得分: <span id="finalScore">0</span></div>
         <div class="button-group">
-            <button class="diff-btn action-btn" onclick="resetGame()">再来一局</button>
-            <button class="diff-btn action-btn" onclick="returnToMenu()">返回菜单</button>
+            <button class="diff-btn action-btn" id="restartBtn" onclick="resetGame()">再来一局</button>
+            <button class="diff-btn action-btn" onclick="returnToMenu()">返回主界面</button>
         </div>
     </div>
 </div>
@@ -195,6 +219,8 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const scoreElement = document.getElementById('score');
+    const modeScreen = document.getElementById('modeScreen');
+    const roomScreen = document.getElementById('roomScreen');
     const startScreen = document.getElementById('startScreen');
     const gameOverScreen = document.getElementById('gameOverScreen');
     const tireSelectionScreen = document.getElementById('tireSelectionScreen');
@@ -203,67 +229,122 @@
     const tireLabelElement = document.getElementById('tireLabel');
     const timerTextElement = document.getElementById('selectionTimer');
     const networkStatusElement = document.getElementById('networkStatus');
+    const waitPrompt = document.getElementById('waitPrompt');
+    const startScreenTitle = document.getElementById('startScreenTitle');
 
     // ==========================================
-    // 【网络通信核心模块】强制开启纯 WebSocket
+    // 【模式与网络通信模块】
     // ==========================================
     const SERVER_URL = 'https://game-server-279669-6-1409195771.sh.run.tcloudbase.com'; 
-    const socket = io(SERVER_URL, {
-        transports: ['websocket'] 
-    });
+    const socket = io(SERVER_URL, { transports: ['websocket'] }); // 强制使用WebSocket
     
+    let gameMode = 'single'; // 当前模式: 'single' 或 'multi'
     let myId = null;        
     let opponent = null;    
+    let gameRoom = ''; 
     let isHost = true; 
 
+    // 服务器连接状态
     socket.on('connect', () => {
-        networkStatusElement.innerText = '🟢 已连接到云端服务器 (v2.1)';
+        networkStatusElement.innerText = '🟢 服务器在线';
         networkStatusElement.style.color = '#2ecc71';
         myId = socket.id;
-        socket.emit('playerAction', { type: 'join', id: myId });
     });
 
     socket.on('disconnect', () => {
-        networkStatusElement.innerText = '🔴 失去服务器连接';
+        networkStatusElement.innerText = '🔴 失去连接';
         networkStatusElement.style.color = '#e74c3c';
     });
 
-    socket.on('playerAction', (data) => {
-        if (data.id !== myId) {
-            // 根据连接ID的字典顺序自动划定主机/客机职责，解决不同步问题
-            if (data.id < myId) isHost = false;
+    // --- 界面跳转逻辑 ---
+    function selectMode(mode) {
+        gameMode = mode;
+        modeScreen.style.display = 'none';
+        
+        if (mode === 'single') {
+            networkStatusElement.style.display = 'none';
+            startScreen.style.display = 'flex';
+            startScreenTitle.innerText = "选择难度";
+        } else {
+            networkStatusElement.style.display = 'block';
+            roomScreen.style.display = 'flex';
+            waitPrompt.style.display = 'none';
+        }
+    }
 
-            if (data.type === 'updatePos') {
-                if (!opponent) opponent = { lane: 1, x: roadOffsetX + laneWidth + laneWidth / 2, y: canvas.height - 110, angle: 0, currentTire: 'default' };
-                opponent.lane = data.lane;
-                opponent.x = data.x;
-                opponent.y = data.y;
-                opponent.angle = data.angle;
-                opponent.currentTire = data.currentTire || 'default';
-            }
-            if (data.type === 'spawnObstacle' && !isHost) {
-                obstacles.push(data.obs);
-            }
+    function backToMode() {
+        roomScreen.style.display = 'none';
+        modeScreen.style.display = 'flex';
+    }
+
+    function joinRoom() {
+        if (!myId) {
+            alert("正在与服务器建立通信，请稍等1秒后再试！");
+            return;
+        }
+        const roomVal = document.getElementById('roomInput').value.trim();
+        if (!roomVal) return;
+        
+        gameRoom = 'room_' + roomVal;
+        waitPrompt.style.display = 'block';
+        
+        // 告诉服务器我加入了这个房间，顺便问问有没有人在
+        socket.emit('playerAction', { type: 'joinRoom', room: gameRoom, id: myId });
+    }
+
+    // --- 联机同步逻辑 ---
+    socket.on('playerAction', (data) => {
+        // 单机模式下屏蔽一切网络请求
+        if (gameMode === 'single' || data.id === myId || data.room !== gameRoom) return;
+
+        // 1. 房间匹配逻辑
+        if (data.type === 'joinRoom') {
+            // 有人进来了，比对ID决定谁是房主 (ID小的当房主)
+            isHost = (myId < data.id);
+            // 告诉对方我也在这个房间
+            socket.emit('playerAction', { type: 'roomAck', room: gameRoom, id: myId });
+            enterDifficultyScreen();
+        } 
+        else if (data.type === 'roomAck') {
+            // 收到对方已经在房间的确认
+            isHost = (myId < data.id);
+            enterDifficultyScreen();
+        } 
+        
+        // 2. 游戏同步逻辑
+        else if (data.type === 'startGameSync') {
+            // 对方选择了难度并开始了游戏，强制同步开始
+            startGame(data.difficulty, true);
+        }
+        else if (data.type === 'updatePos') {
+            if (!opponent) opponent = { lane: 1, x: roadOffsetX + laneWidth + laneWidth / 2, y: canvas.height - 110, angle: 0, currentTire: 'default' };
+            opponent.lane = data.lane; opponent.x = data.x; opponent.y = data.y; opponent.angle = data.angle;
+            opponent.currentTire = data.currentTire || 'default';
+        } 
+        else if (data.type === 'spawnObstacle' && !isHost) {
+            // 客人接收房主的障碍物数据
+            obstacles.push(data.obs);
         }
     });
 
+    function enterDifficultyScreen() {
+        roomScreen.style.display = 'none';
+        startScreen.style.display = 'flex';
+        startScreenTitle.innerText = "匹配成功！请选择难度";
+    }
+
     function broadcastMyPosition() {
-        if (socket.connected) {
+        if (gameMode === 'multi' && socket.connected) {
             socket.emit('playerAction', {
-                type: 'updatePos',
-                id: myId,
-                lane: player.lane,
-                x: player.x,
-                y: player.y,
-                angle: player.angle,
-                currentTire: currentTire
+                type: 'updatePos', room: gameRoom, id: myId,
+                lane: player.lane, x: player.x, y: player.y, angle: player.angle, currentTire: currentTire
             });
         }
     }
 
 
     // ==========================================
-    // 【游戏核心逻辑 - 100%完全保留你的代码】
+    // 【游戏核心逻辑 - 完美继承单机特性】
     // ==========================================
     let score = 0; let gameLoop; let isPlaying = false;
     let speedMultiplier = 1; let baseSpeed = 3; let currentScrollSpeed = 0; 
@@ -284,56 +365,41 @@
 
     let currentTire = 'white'; let tireHealth = 100; let tireDecayRate = 0.016; 
     let isBlowout = false; let tapCount = 0; let targetTapDirection = null; let blowoutPitCooldown = 0;
+    
     let activePitSide = null; let pitTimer = 0; let hasTriggeredPit = false; 
     let pitState = 0; let pitProgress = 0; let tireSelectionEndTime = 0;
 
     function tryMoveLeft() {
-        if (player.lane > 0) {
-            player.lane--; broadcastMyPosition(); return true;
-        } else if (player.lane === 0 && activePitSide === 'left') {
-            player.lane = -1; initiatePitStop(); return true;
-        }
+        if (player.lane > 0) { player.lane--; broadcastMyPosition(); return true; } 
+        else if (player.lane === 0 && activePitSide === 'left') { player.lane = -1; initiatePitStop(); return true; }
         return false;
     }
 
     function tryMoveRight() {
-        if (player.lane < 2) {
-            player.lane++; broadcastMyPosition(); return true;
-        } else if (player.lane === 2 && activePitSide === 'right') {
-            player.lane = 3; initiatePitStop(); return true;
-        }
+        if (player.lane < 2) { player.lane++; broadcastMyPosition(); return true; } 
+        else if (player.lane === 2 && activePitSide === 'right') { player.lane = 3; initiatePitStop(); return true; }
         return false;
     }
 
     window.addEventListener('keydown', (e) => {
         if (!isPlaying || keyProcessed || pitState > 0) return;
-        
         if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
             if (isBlowout) {
-                if (targetTapDirection !== 'left') { tapCount = 1; targetTapDirection = 'left'; }
-                else { tapCount++; }
+                if (targetTapDirection !== 'left') { tapCount = 1; targetTapDirection = 'left'; } else { tapCount++; }
                 if (tapCount >= 3) { tryMoveLeft(); tapCount = 0; }
-            } else {
-                tryMoveLeft();
-            }
+            } else { tryMoveLeft(); }
             keyProcessed = true;
         } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
             if (isBlowout) {
-                if (targetTapDirection !== 'right') { tapCount = 1; targetTapDirection = 'right'; }
-                else { tapCount++; }
+                if (targetTapDirection !== 'right') { tapCount = 1; targetTapDirection = 'right'; } else { tapCount++; }
                 if (tapCount >= 3) { tryMoveRight(); tapCount = 0; }
-            } else {
-                tryMoveRight();
-            }
+            } else { tryMoveRight(); }
             keyProcessed = true;
         }
     });
 
     window.addEventListener('keyup', (e) => {
-        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' || 
-            e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-            keyProcessed = false;
-        }
+        if (['ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)) keyProcessed = false;
     });
 
     function initiatePitStop() { pitState = 1; activePitSide = null; }
@@ -344,8 +410,8 @@
         const positions = [{ dx: -hw - 10, dy: -hh + 20 }, { dx: hw + 10, dy: -hh + 20 }, { dx: -hw - 10, dy: hh - 20 }, { dx: hw + 10, dy: hh - 20 }];
         positions.forEach(pos => {
             let offset = 60; let jiggleX = 0, jiggleY = 0;
-            if (progress < 60) { offset = 60 - (progress / 60) * 60; } 
-            else if (progress > 300) { offset = ((progress - 300) / 60) * 60; } 
+            if (progress < 60) offset = 60 - (progress / 60) * 60;
+            else if (progress > 300) offset = ((progress - 300) / 60) * 60;
             else { offset = 0; jiggleX = (Math.random() - 0.5) * 4; jiggleY = (Math.random() - 0.5) * 4; }
             const mx = carX + pos.dx + (pos.dx < 0 ? -offset : offset) + jiggleX;
             const my = carY + pos.dy + jiggleY;
@@ -372,26 +438,21 @@
         if (obstacles.length >= maxObstacles || pitState > 0) return; 
         if (obstacles.length > 0 && obstacles[obstacles.length - 1].y < safeDistance) return; 
 
-        // 客人直接白嫖房主下发的随机种子，不自己计算
-        if (!isHost && opponent) return;
+        // 联机模式下，客人严禁自主生成障碍物
+        if (gameMode === 'multi' && !isHost) return;
 
         if (Math.random() < spawnChance) {
             let obsLane;
-            if (Math.random() < homingChance) obsLane = player.lane;
-            else obsLane = Math.floor(Math.random() * 3);
-
+            if (Math.random() < homingChance) obsLane = player.lane; else obsLane = Math.floor(Math.random() * 3);
             if (activePitSide === 'left' && obsLane === 0) obsLane = 1;
             if (activePitSide === 'right' && obsLane === 2) obsLane = 1;
 
-            let newObs = {
-                lane: obsLane, x: roadOffsetX + obsLane * laneWidth + laneWidth / 2, y: -120, 
-                speed: baseSpeed * speedMultiplier, color: '#e74c3c'
-            };
-            
+            let newObs = { lane: obsLane, x: roadOffsetX + obsLane * laneWidth + laneWidth / 2, y: -120, speed: baseSpeed * speedMultiplier, color: '#e74c3c' };
             obstacles.push(newObs);
             
-            if (socket.connected) {
-                socket.emit('playerAction', { type: 'spawnObstacle', id: myId, obs: newObs });
+            // 房主生成后同步给客人
+            if (gameMode === 'multi' && socket.connected) {
+                socket.emit('playerAction', { type: 'spawnObstacle', room: gameRoom, id: myId, obs: newObs });
             }
         }
     }
@@ -401,13 +462,15 @@
             let obs = obstacles[i];
             obs.y += currentScrollSpeed * (obs.speed / (baseSpeed * speedMultiplier));
             drawCar(obs.x, obs.y, obs.color, 0, 'default');
+
             const hitboxShrink = 8; 
             const collisionX = Math.abs(player.x - obs.x) < (player.width - hitboxShrink * 2);
             const collisionY = Math.abs(player.y - obs.y) < (player.height - hitboxShrink * 2);
             if (pitState === 0 && collisionX && collisionY) { gameOver('CRASHED!'); return; }
+
             if (obs.y > canvas.height + 100) {
                 obstacles.splice(i, 1); score += 10; scoreElement.innerText = score;
-                if (currentDifficulty !== 'easy' && speedMultiplier < 1.6) { speedMultiplier += 0.005; }
+                if (currentDifficulty !== 'easy' && speedMultiplier < 1.6) speedMultiplier += 0.005; 
                 i--;
             }
         }
@@ -416,7 +479,6 @@
     function drawAndMoveLines() {
         ctx.fillStyle = '#556270'; ctx.fillRect(roadOffsetX, 0, laneWidth * 3, canvas.height);
         ctx.fillStyle = '#ecf0f1'; ctx.fillRect(roadOffsetX, 0, 5, canvas.height); ctx.fillRect(canvas.width - roadOffsetX - 5, 0, 5, canvas.height);
-
         if (activePitSide === 'left') {
             ctx.fillStyle = 'rgba(46, 204, 113, 0.4)'; ctx.fillRect(0, 0, roadOffsetX, canvas.height);
             ctx.fillStyle = '#2ecc71'; ctx.font = 'bold 20px Arial'; ctx.fillText('PIT', roadOffsetX / 2, 80);
@@ -424,7 +486,6 @@
             ctx.fillStyle = 'rgba(46, 204, 113, 0.4)'; ctx.fillRect(canvas.width - roadOffsetX, 0, roadOffsetX, canvas.height);
             ctx.fillStyle = '#2ecc71'; ctx.font = 'bold 20px Arial'; ctx.fillText('PIT', canvas.width - roadOffsetX / 2, 80);
         }
-
         ctx.fillStyle = '#bdc3c7';
         for(let i=0; i<lines.length; i++) {
             lines[i] += currentScrollSpeed; if(lines[i] > canvas.height) lines[i] = -150;
@@ -507,10 +568,13 @@
         
         if (isPlaying) {
             drawCar(player.x, player.y, player.color, player.angle, currentTire);
-            if (opponent) {
+            
+            // 联机模式下画出对手
+            if (gameMode === 'multi' && opponent) {
                 drawCar(opponent.x, opponent.y, '#e67e22', opponent.angle, opponent.currentTire);
                 ctx.fillStyle = '#e67e22'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.fillText('P2', opponent.x, opponent.y - 50);
             }
+            
             if (isBlowout && pitState === 0) {
                 ctx.fillStyle = '#e74c3c'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
                 let tapsLeft = 3 - tapCount;
@@ -524,24 +588,58 @@
         }
     }
 
-    function startGame(difficulty) {
+    function startGame(difficulty, fromSync = false) {
         currentDifficulty = difficulty;
+        
+        // 联机模式：如果是一方点击难度，发送指令同步给另一方
+        if (gameMode === 'multi' && !fromSync && socket.connected) {
+            socket.emit('playerAction', { type: 'startGameSync', room: gameRoom, id: myId, difficulty: difficulty });
+        }
+
         switch(difficulty) {
             case 'easy': baseSpeed = 1.8; maxObstacles = 1; spawnChance = 0.015; homingChance = 0.05; safeDistance = 450; tireDecayRate = 0.012; break;
             case 'normal': baseSpeed = 2.5; maxObstacles = 2; spawnChance = 0.018; homingChance = 0.1; safeDistance = 380; tireDecayRate = 0.016; break;
             case 'hard': baseSpeed = 3.2; maxObstacles = 2; spawnChance = 0.02; homingChance = 0.2; safeDistance = 350; tireDecayRate = 0.024; break;
             case 'expert': baseSpeed = 3.8; maxObstacles = 2; spawnChance = 0.025; homingChance = 0.3; safeDistance = 300; tireDecayRate = 0.032; break;
         }
+
         startScreen.style.display = 'none'; gameOverScreen.style.display = 'none'; tireSelectionScreen.style.display = 'none';
         resetData(); isPlaying = true; update();
     }
 
-    function gameOver(reason) { isPlaying = false; cancelAnimationFrame(gameLoop); document.getElementById('gameOverReason').innerText = reason; finalScoreElement.innerText = score; gameOverScreen.style.display = 'flex'; }
+    function gameOver(reason) { 
+        isPlaying = false; cancelAnimationFrame(gameLoop); 
+        document.getElementById('gameOverReason').innerText = reason; 
+        finalScoreElement.innerText = score; 
+        
+        // 游戏结束后，联机模式直接返回主屏幕以便重新匹配
+        if (gameMode === 'multi') {
+            document.getElementById('restartBtn').style.display = 'none';
+        } else {
+            document.getElementById('restartBtn').style.display = 'block';
+        }
+        gameOverScreen.style.display = 'flex'; 
+    }
+
     function resetGame() { startGame(currentDifficulty); }
-    function returnToMenu() { gameOverScreen.style.display = 'none'; startScreen.style.display = 'flex'; ctx.fillStyle = '#7f8c8d'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#556270'; ctx.fillRect(roadOffsetX, 0, laneWidth * 3, canvas.height); }
+
+    function returnToMenu() { 
+        gameOverScreen.style.display = 'none'; 
+        modeScreen.style.display = 'flex'; 
+        
+        // 重置网络状态
+        gameMode = 'single';
+        opponent = null;
+        gameRoom = '';
+        waitPrompt.style.display = 'none';
+
+        ctx.fillStyle = '#7f8c8d'; ctx.fillRect(0, 0, canvas.width, canvas.height); 
+        ctx.fillStyle = '#556270'; ctx.fillRect(roadOffsetX, 0, laneWidth * 3, canvas.height); 
+    }
 
     function resetData() {
-        score = 0; speedMultiplier = 1; currentScrollSpeed = 0; scoreElement.innerText = score; obstacles = []; player.lane = 1; player.x = roadOffsetX + 1 * laneWidth + laneWidth / 2; player.angle = 0; keyProcessed = false; lines = [0, 150, 300, 450, 600];
+        score = 0; speedMultiplier = 1; currentScrollSpeed = 0; scoreElement.innerText = score; obstacles = []; 
+        player.lane = 1; player.x = roadOffsetX + 1 * laneWidth + laneWidth / 2; player.angle = 0; keyProcessed = false; lines = [0, 150, 300, 450, 600];
         currentTire = 'white'; tireHealth = 100; isBlowout = false; tapCount = 0; targetTapDirection = null; activePitSide = null; hasTriggeredPit = false; pitState = 0; pitProgress = 0; updateTireUI();
     }
     
