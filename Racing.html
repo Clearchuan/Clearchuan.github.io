@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D RACING v6.0 - 沉浸式街机联机版</title>
+    <title>2D RACING v6.1 - 沉浸式街机联机版</title>
     <!-- 引入 Socket.io 联机通信库 -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
@@ -100,7 +100,7 @@
 
     <!-- 1. 模式选择界面 -->
     <div id="modeScreen" class="overlay">
-        <h1>2D RACING v6.0</h1>
+        <h1>2D RACING v6.1</h1>
         <p class="controls">请选择你的游玩方式</p>
         <button class="diff-btn btn-normal" onclick="selectMode('single')">单机模式 (硬核1命)</button>
         <button class="diff-btn" style="background-color: #9b59b6;" onclick="selectMode('multi')">联机对战 (组队3命)</button>
@@ -189,7 +189,7 @@
     let isHost = true; 
 
     socket.on('connect', () => {
-        networkStatusElement.innerText = '🟢 服务器在线 (v6.0)';
+        networkStatusElement.innerText = '🟢 服务器在线 (v6.1)';
         networkStatusElement.style.color = '#2ecc71';
         myId = socket.id;
     });
@@ -272,7 +272,7 @@
     // 【核心逻辑 - 物理、渲染与游戏循环】
     // ==========================================
     let score = 0; let gameLoop; let isPlaying = false;
-    let speedMultiplier = 1; let baseSpeed = 3; let currentScrollSpeed = 0; let absoluteScroll = 0; // 全局绝对滚动量用于画风景
+    let speedMultiplier = 1; let baseSpeed = 3; let currentScrollSpeed = 0; let absoluteScroll = 0; 
     let currentDifficulty = 'normal'; let maxObstacles = 1; let spawnChance = 0.015;
     let homingChance = 0.2; let safeDistance = 350; 
 
@@ -451,7 +451,6 @@
             let obs = obstacles[i];
             
             // 【真实物理】：障碍物也在往前开，相对位移 = 你的速度 - 障碍物的速度
-            // 如果你进站(减速到0)，你会看到障碍物一溜烟开走！
             obs.y += (currentScrollSpeed - obs.speed);
             
             drawCar(obs.x, obs.y, obs.color, 0, 'yellow');
@@ -476,43 +475,43 @@
         }
     }
 
-    // 【全新场景绘制：路肩、观众席、维修站】
+    // 【全新场景绘制：精简路肩、观众席外推】
     function drawAndMoveLines() {
         // 主赛道柏油路
         ctx.fillStyle = '#404a55'; ctx.fillRect(roadOffsetX, 0, laneWidth * 3, canvas.height);
         
         // 两侧草地
-        ctx.fillStyle = '#27ae60'; ctx.fillRect(0, 0, roadOffsetX - 10, canvas.height);
-        ctx.fillStyle = '#27ae60'; ctx.fillRect(canvas.width - roadOffsetX + 10, 0, roadOffsetX - 10, canvas.height);
+        ctx.fillStyle = '#27ae60'; ctx.fillRect(0, 0, roadOffsetX, canvas.height);
+        ctx.fillStyle = '#27ae60'; ctx.fillRect(canvas.width - roadOffsetX, 0, roadOffsetX, canvas.height);
 
-        // 观众席 (红白相间滚动)
+        // 观众席 (淡化，红白相间滚动，更靠外侧)
         let grandstandOffset = absoluteScroll % 80;
         for(let y = -80; y < canvas.height + 80; y += 80) {
             let drawY = y + grandstandOffset;
-            ctx.fillStyle = '#c0392b'; ctx.fillRect(10, drawY, roadOffsetX - 50, 40);
-            ctx.fillStyle = '#ecf0f1'; ctx.fillRect(10, drawY + 40, roadOffsetX - 50, 40);
-            ctx.fillStyle = '#c0392b'; ctx.fillRect(canvas.width - roadOffsetX + 40, drawY, roadOffsetX - 50, 40);
-            ctx.fillStyle = '#ecf0f1'; ctx.fillRect(canvas.width - roadOffsetX + 40, drawY + 40, roadOffsetX - 50, 40);
+            ctx.fillStyle = 'rgba(192, 57, 43, 0.6)'; ctx.fillRect(0, drawY, roadOffsetX - 60, 40); // 淡化红色
+            ctx.fillStyle = 'rgba(236, 240, 241, 0.6)'; ctx.fillRect(0, drawY + 40, roadOffsetX - 60, 40); // 淡化白色
+            ctx.fillStyle = 'rgba(192, 57, 43, 0.6)'; ctx.fillRect(canvas.width - roadOffsetX + 60, drawY, roadOffsetX - 60, 40); // 淡化红色
+            ctx.fillStyle = 'rgba(236, 240, 241, 0.6)'; ctx.fillRect(canvas.width - roadOffsetX + 60, drawY + 40, roadOffsetX - 60, 40); // 淡化白色
         }
 
         // 维修站区域渲染
         if (activePitSide === 'left') {
-            ctx.fillStyle = '#34495e'; ctx.fillRect(roadOffsetX - 60, 0, 50, canvas.height);
+            ctx.fillStyle = '#34495e'; ctx.fillRect(roadOffsetX - 60, 0, 60, canvas.height);
             ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 20px Arial'; ctx.fillText('PIT', roadOffsetX - 35, 100);
             drawCar(roadOffsetX - 35, (absoluteScroll % 800) - 100, '#95a5a6', 0, 'yellow'); // 停在里面的维修车
         } else if (activePitSide === 'right') {
-            ctx.fillStyle = '#34495e'; ctx.fillRect(canvas.width - roadOffsetX + 10, 0, 50, canvas.height);
+            ctx.fillStyle = '#34495e'; ctx.fillRect(canvas.width - roadOffsetX, 0, 60, canvas.height);
             ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 20px Arial'; ctx.fillText('PIT', canvas.width - roadOffsetX + 35, 100);
             drawCar(canvas.width - roadOffsetX + 35, (absoluteScroll % 800) - 100, '#95a5a6', 0, 'yellow');
         }
 
-        // 赛道边缘红白路肩
+        // 赛道边缘红白路肩 (仅在边缘点缀)
         let kerbOffset = absoluteScroll % 40;
         for(let y = -40; y < canvas.height + 40; y += 40) {
             let drawY = y + kerbOffset;
             ctx.fillStyle = (Math.floor(y/40) % 2 === 0) ? '#e74c3c' : '#ecf0f1';
-            ctx.fillRect(roadOffsetX - 10, drawY, 10, 40);
-            ctx.fillRect(canvas.width - roadOffsetX, drawY, 10, 40);
+            ctx.fillRect(roadOffsetX - 5, drawY, 5, 40); // 宽度从 10 减小到 5
+            ctx.fillRect(canvas.width - roadOffsetX, drawY, 5, 40); // 宽度从 10 减小到 5
         }
 
         // 车道虚线
