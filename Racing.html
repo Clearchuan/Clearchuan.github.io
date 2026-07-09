@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D RACING v4.0 - 复活与观战</title>
+    <title>2D RACING v5.0</title>
     <!-- 引入 Socket.io 联机通信库 -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
@@ -23,6 +23,7 @@
         #livesBoard {
             position: absolute; top: 45px; left: 15px; font-size: 20px; font-weight: bold;
             color: #e74c3c; z-index: 10; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            display: none;
         }
         
         #tireBoard {
@@ -63,7 +64,7 @@
 
         #tireSelectionScreen { display: none; background-color: rgba(26, 37, 47, 0.85); z-index: 25; }
         .tire-btn {
-            width: 250px; margin: 10px 0; padding: 15px; font-size: 20px; font-weight: bold;
+            width: 320px; margin: 10px 0; padding: 15px; font-size: 20px; font-weight: bold;
             border: 2px solid #2c3e50; border-radius: 8px; cursor: pointer; transition: transform 0.2s;
             display: flex; justify-content: space-between; align-items: center;
         }
@@ -75,16 +76,23 @@
         #selectionTimer { font-size: 40px; color: #f1c40f; margin-bottom: 20px; font-weight: bold; }
         
         #networkStatus { position: absolute; bottom: 10px; left: 15px; font-size: 14px; color: #e74c3c; z-index: 10; }
+
+        #spectatorPrompt {
+            display: none; position: absolute; top: 120px; width: 100%; text-align: center;
+            color: #e74c3c; font-size: 20px; font-weight: bold; text-shadow: 0 0 8px black; z-index: 15;
+            animation: blink 2s infinite;
+        }
+        @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
 <div id="gameWrapper">
     <div id="scoreBoard">SCORE: <span id="score">0</span></div>
-    <!-- 新增：心心生命值显示 -->
     <div id="livesBoard">LIVES: <span id="livesDisplay">❤️❤️❤️</span></div>
     
     <div id="networkStatus" style="display: none;">未连接到服务器...</div>
+    <div id="spectatorPrompt">💀 你已阵亡，正在观战队友...</div>
     
     <div id="tireBoard">
         <div id="tireLabel">WHITE TIRE</div>
@@ -95,10 +103,10 @@
 
     <!-- 1. 模式选择界面 -->
     <div id="modeScreen" class="overlay">
-        <h1>2D RACING v4.0</h1>
-        <p class="controls">选择你的游玩方式</p>
-        <button class="diff-btn btn-normal" onclick="selectMode('single')">单机模式 (Single)</button>
-        <button class="diff-btn" style="background-color: #9b59b6;" onclick="selectMode('multi')">联机对战 (Multiplayer)</button>
+        <h1>2D RACING v5.0</h1>
+        <p class="controls">请选择你的游玩方式</p>
+        <button class="diff-btn btn-normal" onclick="selectMode('single')">单机模式 (硬核1命)</button>
+        <button class="diff-btn" style="background-color: #9b59b6;" onclick="selectMode('multi')">联机对战 (组队3命)</button>
     </div>
 
     <!-- 2. 联机大厅界面 -->
@@ -108,7 +116,7 @@
         <input type="text" id="roomInput" value="101" placeholder="房间号 (如: 101)" style="padding: 10px; font-size: 18px; border-radius: 5px; border: none; text-align: center; margin-bottom: 20px; width: 180px;">
         <button class="diff-btn btn-easy" onclick="joinRoom()">加入房间</button>
         <button class="diff-btn" style="background-color: #7f8c8d;" onclick="backToMode()">返回</button>
-        <div id="waitPrompt" style="display:none; color: #f1c40f; font-weight: bold; margin-top: 20px; font-size: 18px;">正在等待对手接入...</div>
+        <div id="waitPrompt" style="display:none; color: #f1c40f; font-weight: bold; margin-top: 20px; font-size: 18px;">正在等待队友接入...</div>
     </div>
     
     <!-- 3. 难度选择界面 -->
@@ -123,30 +131,30 @@
         </div>
     </div>
 
-    <!-- 4. 轮胎选择界面 -->
+    <!-- 4. 轮胎选择界面 (已更正) -->
     <div id="tireSelectionScreen" class="overlay">
-        <h2>SELECT TIRE</h2>
+        <h2>PIT STOP</h2>
         <div id="selectionTimer">5</div>
-        <button class="tire-btn tire-red" onclick="confirmTireSelection('red')">
-            <span>红胎 (RED)</span><span class="tire-desc">最慢流速 / 极快磨损</span>
+        <button class="tire-btn tire-white" onclick="confirmTireSelection('white')">
+            <span>白胎 (WHITE)</span><span class="tire-desc">最快流速 / 极耐磨</span>
         </button>
         <button class="tire-btn tire-yellow" onclick="confirmTireSelection('yellow')">
-            <span>黄胎 (YELLOW)</span><span class="tire-desc">中等流速 / 较快磨损</span>
+            <span>黄胎 (YELLOW)</span><span class="tire-desc">中等流速 / 标准磨损</span>
         </button>
-        <button class="tire-btn tire-white" onclick="confirmTireSelection('white')">
-            <span>白胎 (WHITE)</span><span class="tire-desc">标准流速 / 标准磨损</span>
+        <button class="tire-btn tire-red" onclick="confirmTireSelection('red')">
+            <span>红胎 (RED)</span><span class="tire-desc">最慢流速 / 极不耐磨</span>
         </button>
     </div>
 
-    <!-- 5. 【新增】被击毁等待复活界面 -->
+    <!-- 5. 等待复活界面 -->
     <div id="respawnScreen" class="overlay" style="background-color: rgba(26, 37, 47, 0.85);">
         <h1 style="color: #e74c3c;">VEHICLE DESTROYED</h1>
         <p style="font-size: 20px; font-weight: bold; color: #f1c40f;">剩余复活次数: <span id="respawnCount">2</span></p>
-        <button class="diff-btn btn-easy" onclick="respawn()">空降并同步队友轮胎</button>
+        <button class="diff-btn btn-easy" onclick="respawn()">空降并同步队友状态</button>
         <div style="margin-top: 15px; color: #bdc3c7; font-size: 14px;">(此时可透视底层观战)</div>
     </div>
 
-    <!-- 6. 游戏彻底结束界面 -->
+    <!-- 6. 游戏结束界面 -->
     <div id="gameOverScreen" class="overlay">
         <h1 id="gameOverReason">CRASHED!</h1>
         <div class="score-display">最终得分: <span id="finalScore">0</span></div>
@@ -167,6 +175,7 @@
     const gameOverScreen = document.getElementById('gameOverScreen');
     const tireSelectionScreen = document.getElementById('tireSelectionScreen');
     const respawnScreen = document.getElementById('respawnScreen');
+    const spectatorPrompt = document.getElementById('spectatorPrompt');
     const finalScoreElement = document.getElementById('finalScore');
     const tireBarElement = document.getElementById('tireBar');
     const tireLabelElement = document.getElementById('tireLabel');
@@ -176,7 +185,7 @@
     const startScreenTitle = document.getElementById('startScreenTitle');
 
     // ==========================================
-    // 【模式与网络通信模块】
+    // 【网络通信模块】
     // ==========================================
     const SERVER_URL = 'https://game-server-279669-6-1409195771.sh.run.tcloudbase.com'; 
     const socket = io(SERVER_URL, { transports: ['websocket'] });
@@ -188,7 +197,7 @@
     let isHost = true; 
 
     socket.on('connect', () => {
-        networkStatusElement.innerText = '🟢 服务器在线 (v4.0)';
+        networkStatusElement.innerText = '🟢 服务器在线 (v5.0)';
         networkStatusElement.style.color = '#2ecc71';
         myId = socket.id;
     });
@@ -203,10 +212,12 @@
         modeScreen.style.display = 'none';
         if (mode === 'single') {
             networkStatusElement.style.display = 'none';
+            document.getElementById('livesBoard').style.display = 'none';
             startScreen.style.display = 'flex';
-            startScreenTitle.innerText = "选择难度";
+            startScreenTitle.innerText = "选择难度 (单机 1 命)";
         } else {
             networkStatusElement.style.display = 'block';
+            document.getElementById('livesBoard').style.display = 'block';
             roomScreen.style.display = 'flex';
             waitPrompt.style.display = 'none';
         }
@@ -215,7 +226,7 @@
     function backToMode() { roomScreen.style.display = 'none'; modeScreen.style.display = 'flex'; }
 
     function joinRoom() {
-        if (!myId) { alert("正在与服务器建立通信，请稍等1秒后再试！"); return; }
+        if (!myId) { alert("正在建立通信，稍等1秒..."); return; }
         const roomVal = document.getElementById('roomInput').value.trim();
         if (!roomVal) return;
         gameRoom = 'room_' + roomVal;
@@ -239,31 +250,41 @@
             startGame(data.difficulty, true);
         }
         else if (data.type === 'updatePos') {
-            if (!opponent) opponent = { lane: 1, x: roadOffsetX + laneWidth + laneWidth / 2, y: canvas.height - 110, angle: 0, currentTire: 'default', isDead: false };
+            if (!opponent) opponent = { lane: 1, x: roadOffsetX + laneWidth + laneWidth / 2, y: canvas.height - 110, angle: 0, currentTire: 'white', isDead: false };
             opponent.lane = data.lane; opponent.x = data.x; opponent.y = data.y; opponent.angle = data.angle;
-            opponent.currentTire = data.currentTire || 'default';
-            opponent.isDead = data.isDead; // 【同步对手生死状态】
+            opponent.currentTire = data.currentTire || 'white';
+            
+            // 同步死亡状态
+            opponent.isDead = data.isDead;
+            
+            // 判断是否全军覆没
+            if (isDead && opponent.isDead && isPlaying) {
+                gameOver('全军覆没 (TEAM WIPED OUT)');
+            }
         } 
         else if (data.type === 'spawnObstacle' && !isHost) {
             obstacles.push(data.obs);
         }
     });
 
-    function enterDifficultyScreen() { roomScreen.style.display = 'none'; startScreen.style.display = 'flex'; startScreenTitle.innerText = "匹配成功！请选择难度"; }
+    function enterDifficultyScreen() { 
+        roomScreen.style.display = 'none'; 
+        startScreen.style.display = 'flex'; 
+        startScreenTitle.innerText = "匹配成功！请选择难度"; 
+    }
 
     function broadcastMyPosition() {
         if (gameMode === 'multi' && socket.connected) {
             socket.emit('playerAction', {
                 type: 'updatePos', room: gameRoom, id: myId,
                 lane: player.lane, x: player.x, y: player.y, angle: player.angle, 
-                currentTire: currentTire, isDead: isDead // 【同步生死】
+                currentTire: currentTire, isDead: isDead
             });
         }
     }
 
-
     // ==========================================
-    // 【核心逻辑 - 新增3命系统与无敌帧】
+    // 【游戏核心逻辑 - 最新轮胎策略与生死判定】
     // ==========================================
     let score = 0; let gameLoop; let isPlaying = false;
     let speedMultiplier = 1; let baseSpeed = 3; let currentScrollSpeed = 0; 
@@ -271,28 +292,29 @@
     let homingChance = 0.2; let safeDistance = 350; 
 
     const roadOffsetX = 120; const laneWidth = 120;
-    
-    const player = {
-        lane: 1, x: roadOffsetX + 1 * laneWidth + laneWidth / 2, y: canvas.height - 110,
-        width: 50, height: 90, color: '#3498db', angle: 0
-    };
+    const player = { lane: 1, x: roadOffsetX + 1 * laneWidth + laneWidth / 2, y: canvas.height - 110, width: 50, height: 90, color: '#3498db', angle: 0 };
 
     let obstacles = []; let lines = [0, 150, 300, 450, 600]; let keyProcessed = false;
 
+    // 【核心更正】轮胎配方：白(快且耐磨), 黄(均衡), 红(慢但不耐磨)
     const tireColors = { 'red': '#e74c3c', 'yellow': '#f1c40f', 'white': '#ecf0f1', 'default': '#2c3e50' };
-    const tireMods = { 'white': { speed: 1.0, wear: 1.0 }, 'yellow': { speed: 0.85, wear: 1.5 }, 'red': { speed: 0.7, wear: 2.0 } };
+    const tireMods = { 
+        'white': { speed: 1.2, wear: 0.8 }, 
+        'yellow': { speed: 1.0, wear: 1.0 }, 
+        'red': { speed: 0.7, wear: 1.5 } 
+    };
 
     let currentTire = 'white'; let tireHealth = 100; let tireDecayRate = 0.016; 
     let isBlowout = false; let tapCount = 0; let targetTapDirection = null; let blowoutPitCooldown = 0;
     let activePitSide = null; let pitTimer = 0; let hasTriggeredPit = false; 
     let pitState = 0; let pitProgress = 0; let tireSelectionEndTime = 0;
     
-    // --- 新增状态变量 ---
-    let lives = 3; 
+    let lives = 1; 
     let isDead = false; 
     let invincibleEndTime = 0;
 
     function updateLivesUI() {
+        if (gameMode === 'single') return;
         let hearts = '';
         for(let i=0; i<lives; i++) hearts += '❤️';
         for(let i=lives; i<3; i++) hearts += '🖤';
@@ -300,17 +322,29 @@
     }
 
     function die() {
+        isDead = true;
+        broadcastMyPosition();
+
+        if (gameMode === 'single') {
+            // 单机硬核1命
+            gameOver('CRASHED!');
+            return;
+        }
+
         lives--;
         updateLivesUI();
-        isDead = true;
-        broadcastMyPosition(); // 立即告诉队友我死了，隐藏我的车
+
+        // 如果队友也死了，直接全军覆没
+        if (opponent && opponent.isDead) {
+            gameOver('全军覆没 (TEAM WIPED OUT)');
+            return;
+        }
 
         if (lives > 0) {
             document.getElementById('respawnCount').innerText = lives;
             respawnScreen.style.display = 'flex';
-            // 此时不取消 RequestAnimationFrame，保持观战视角
         } else {
-            gameOver('OUT OF LIVES!');
+            spectatorPrompt.style.display = 'block';
         }
     }
 
@@ -318,26 +352,19 @@
         respawnScreen.style.display = 'none';
         isDead = false;
         
-        // 【核心】：复活到队友位置并换成同款轮胎
+        // 空降至队友身边，强制同步轮胎
         if (gameMode === 'multi' && opponent && !opponent.isDead) {
             player.lane = opponent.lane;
             player.x = opponent.x;
             player.y = opponent.y;
             currentTire = opponent.currentTire;
         } else {
-            player.lane = 1;
-            player.x = roadOffsetX + 1 * laneWidth + laneWidth / 2;
-            currentTire = 'white';
+            player.lane = 1; player.x = roadOffsetX + 1 * laneWidth + laneWidth / 2; currentTire = 'white';
         }
         
-        tireHealth = 100;
-        isBlowout = false;
-        tapCount = 0;
-        pitState = 0;
+        tireHealth = 100; isBlowout = false; tapCount = 0; pitState = 0;
         invincibleEndTime = Date.now() + 3000; // 3秒无敌
-        
-        updateTireUI();
-        broadcastMyPosition();
+        updateTireUI(); broadcastMyPosition();
     }
 
     function tryMoveLeft() {
@@ -353,7 +380,7 @@
     }
 
     window.addEventListener('keydown', (e) => {
-        if (!isPlaying || keyProcessed || pitState > 0 || isDead) return; // 死了不能操作
+        if (!isPlaying || keyProcessed || pitState > 0 || isDead) return;
         if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
             if (isBlowout) {
                 if (targetTapDirection !== 'left') { tapCount = 1; targetTapDirection = 'left'; } else { tapCount++; }
@@ -432,18 +459,13 @@
             obs.y += currentScrollSpeed * (obs.speed / (baseSpeed * speedMultiplier));
             drawCar(obs.x, obs.y, obs.color, 0, 'default');
 
-            // 【核心】撞击判定与无敌帧
             if (!isDead) {
                 const hitboxShrink = 8; 
                 const collisionX = Math.abs(player.x - obs.x) < (player.width - hitboxShrink * 2);
                 const collisionY = Math.abs(player.y - obs.y) < (player.height - hitboxShrink * 2);
                 let isInvincible = Date.now() < invincibleEndTime;
                 
-                // 非进站状态、非无敌状态且撞击 -> 死亡
-                if (pitState === 0 && !isInvincible && collisionX && collisionY) { 
-                    die(); 
-                    return; 
-                }
+                if (pitState === 0 && !isInvincible && collisionX && collisionY) { die(); return; }
             }
 
             if (obs.y > canvas.height + 100) {
@@ -491,6 +513,12 @@
 
         if (!isDead) {
             let tireSpeedMod = tireMods[currentTire].speed;
+            
+            // 联机全队流速融合：全队的流速由两人各自装备的轮胎综合决定
+            if (gameMode === 'multi' && opponent && !opponent.isDead) {
+                let oppTireSpeedMod = tireMods[opponent.currentTire] ? tireMods[opponent.currentTire].speed : 1.0;
+                tireSpeedMod = (tireSpeedMod + oppTireSpeedMod) / 2;
+            }
             targetSpeed = baseSpeed * speedMultiplier * tireSpeedMod;
 
             if (pitState > 0) {
@@ -525,7 +553,6 @@
             player.angle = Math.max(-0.4, Math.min(0.4, targetAngle));
             player.x += (targetX - player.x) * 0.15; 
 
-            // 存活时的爆胎磨损判定
             if (pitState === 0) {
                 if (!isBlowout) {
                     let tireWearMod = tireMods[currentTire].wear;
@@ -541,8 +568,12 @@
                 if (activePitSide !== null) { pitTimer--; if (pitTimer <= 0) activePitSide = null; }
             }
         } else {
-            // 【死亡时的观战流速】：保持画面基准速度继续滚动
-            targetSpeed = baseSpeed * speedMultiplier;
+            // 观战流速取决于队友的轮胎
+            if (gameMode === 'multi' && opponent && !opponent.isDead) {
+                targetSpeed = baseSpeed * speedMultiplier * (tireMods[opponent.currentTire] ? tireMods[opponent.currentTire].speed : 1.0);
+            } else {
+                targetSpeed = baseSpeed * speedMultiplier;
+            }
         }
 
         currentScrollSpeed += (targetSpeed - currentScrollSpeed) * 0.05;
@@ -553,7 +584,7 @@
         drawAndMoveObstacles();
         
         if (isPlaying) {
-            // 【渲染本地玩家】：死亡时不渲染，无敌时半透明高频闪烁
+            // 本地车渲染
             if (!isDead) {
                 let isInvincible = Date.now() < invincibleEndTime;
                 if (!isInvincible || Math.floor(Date.now() / 150) % 2 === 0) {
@@ -571,7 +602,7 @@
                 }
             }
 
-            // 【渲染联机对手】：对手死亡时不渲染
+            // 对手渲染
             if (gameMode === 'multi' && opponent && !opponent.isDead) {
                 drawCar(opponent.x, opponent.y, '#e67e22', opponent.angle, opponent.currentTire);
                 ctx.fillStyle = '#e67e22'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.fillText('P2', opponent.x, opponent.y - 50);
@@ -597,18 +628,21 @@
     }
 
     function gameOver(reason) { 
+        isPlaying = false;
+        cancelAnimationFrame(gameLoop);
         document.getElementById('gameOverReason').innerText = reason; 
         finalScoreElement.innerText = score; 
         
+        respawnScreen.style.display = 'none';
+        spectatorPrompt.style.display = 'none';
+
         if (gameMode === 'multi') {
             document.getElementById('restartBtn').style.display = 'none';
-            // 联机模式下彻底死亡：界面变透明供观战，不取消 gameLoop
+            // 联机模式彻底死亡：半透明遮罩，游戏循环结束
             gameOverScreen.style.backgroundColor = 'rgba(26, 37, 47, 0.6)';
         } else {
             document.getElementById('restartBtn').style.display = 'block';
             gameOverScreen.style.backgroundColor = 'rgba(26, 37, 47, 0.95)';
-            isPlaying = false; // 单机模式彻底停机
-            cancelAnimationFrame(gameLoop); 
         }
         gameOverScreen.style.display = 'flex'; 
     }
@@ -626,8 +660,9 @@
         player.lane = 1; player.x = roadOffsetX + 1 * laneWidth + laneWidth / 2; player.angle = 0; keyProcessed = false; lines = [0, 150, 300, 450, 600];
         currentTire = 'white'; tireHealth = 100; isBlowout = false; tapCount = 0; targetTapDirection = null; activePitSide = null; hasTriggeredPit = false; pitState = 0; pitProgress = 0; updateTireUI();
         
-        // 充能生命系统
-        lives = 3; isDead = false; invincibleEndTime = 0; updateLivesUI();
+        lives = gameMode === 'multi' ? 3 : 1; 
+        isDead = false; invincibleEndTime = 0; updateLivesUI();
+        spectatorPrompt.style.display = 'none';
     }
     
     ctx.fillStyle = '#7f8c8d'; ctx.fillRect(0, 0, canvas.width, canvas.height);
