@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D RACING - 联机版</title>
+    <title>2D RACING v2.0 - 联机版</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         body {
@@ -115,29 +115,13 @@
             min-width: 150px;
             margin: 10px 5px;
         }
-        .action-btn:hover {
-            background-color: #95a5a6;
-        }
-        .button-group {
-            display: flex;
-            gap: 15px;
-        }
+        .action-btn:hover { background-color: #95a5a6; }
+        .button-group { display: flex; gap: 15px; }
         
         #gameOverScreen { display: none; }
-        #gameOverReason {
-            color: #e74c3c;
-            text-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
-        }
-        .score-display {
-            font-size: 24px;
-            margin-bottom: 30px;
-            color: #ecf0f1;
-        }
-        .score-display span {
-            color: #f1c40f;
-            font-weight: bold;
-            font-size: 32px;
-        }
+        #gameOverReason { color: #e74c3c; text-shadow: 0 0 10px rgba(231, 76, 60, 0.5); }
+        .score-display { font-size: 24px; margin-bottom: 30px; color: #ecf0f1; }
+        .score-display span { color: #f1c40f; font-weight: bold; font-size: 32px; }
 
         #tireSelectionScreen {
             display: none;
@@ -145,31 +129,18 @@
             z-index: 25; 
         }
         .tire-btn {
-            width: 250px;
-            margin: 10px 0;
-            padding: 15px;
-            font-size: 20px;
-            font-weight: bold;
-            border: 2px solid #2c3e50;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            width: 250px; margin: 10px 0; padding: 15px; font-size: 20px; font-weight: bold;
+            border: 2px solid #2c3e50; border-radius: 8px; cursor: pointer; transition: transform 0.2s;
+            display: flex; justify-content: space-between; align-items: center;
         }
         .tire-btn:hover { transform: scale(1.05); }
         .tire-white { background-color: #ecf0f1; color: #2c3e50; }
         .tire-yellow { background-color: #f1c40f; color: #2c3e50; }
         .tire-red { background-color: #e74c3c; color: white; }
         .tire-desc { font-size: 14px; font-weight: normal; }
-        #selectionTimer {
-            font-size: 40px;
-            color: #f1c40f;
-            margin-bottom: 20px;
-            font-weight: bold;
-        }
+        #selectionTimer { font-size: 40px; color: #f1c40f; margin-bottom: 20px; font-weight: bold; }
         
+        /* 联机状态提示 */
         #networkStatus {
             position: absolute; bottom: 10px; left: 15px; font-size: 14px; color: #e74c3c; z-index: 10;
         }
@@ -191,7 +162,6 @@
     <div id="startScreen" class="overlay">
         <h1>2D RACING</h1>
         <p class="controls">按 <b>左 / 右</b> 或 <b>A / D</b> 键切换车道</p>
-        
         <button class="diff-btn btn-easy" onclick="startGame('easy')">EASY</button>
         <button class="diff-btn btn-normal" onclick="startGame('normal')">NORMAL</button>
         <button class="diff-btn btn-hard" onclick="startGame('hard')">HARD</button>
@@ -201,7 +171,6 @@
     <div id="tireSelectionScreen" class="overlay">
         <h2>SELECT TIRE</h2>
         <div id="selectionTimer">5</div>
-        
         <button class="tire-btn tire-red" onclick="confirmTireSelection('red')">
             <span>红胎 (RED)</span><span class="tire-desc">最慢流速 / 极快磨损</span>
         </button>
@@ -244,12 +213,14 @@
     
     let myId = null;        
     let opponent = null;    
-    let isHost = true; // 默认自己是房主，遇到ID更小的玩家则变为客人
+    let gameRoom = 'room_public'; 
+    let isHost = true; // 默认自己是房主
 
     socket.on('connect', () => {
-        networkStatusElement.innerText = '🟢 已连接到服务器';
+        networkStatusElement.innerText = '🟢 已连接到服务器 (v2.0)';
         networkStatusElement.style.color = '#2ecc71';
         myId = socket.id;
+        socket.emit('playerAction', { type: 'join', room: gameRoom, id: myId });
     });
 
     socket.on('disconnect', () => {
@@ -258,8 +229,9 @@
     });
 
     socket.on('playerAction', (data) => {
-        if (data.id !== myId) {
-            // 自动判定房主，确保两人不会同时刷出不同的障碍物
+        if (data.id !== myId && data.room === gameRoom) {
+            
+            // 自动判定房主：ID字符串较小的人当房主，房主负责生成障碍物
             if (data.id < myId) isHost = false;
 
             if (data.type === 'updatePos') {
@@ -268,10 +240,9 @@
                 opponent.x = data.x;
                 opponent.y = data.y;
                 opponent.angle = data.angle;
-                opponent.currentTire = data.currentTire; // 同步对手的轮胎颜色
-            }
-            if (data.type === 'spawnObstacle' && !isHost) {
-                // 如果自己是客人，直接将房主生成的障碍物推入本地数组
+                opponent.currentTire = data.currentTire || 'default';
+            } else if (data.type === 'spawnObstacle' && !isHost) {
+                // 客人接收房主发来的障碍物数据，避免平行世界
                 obstacles.push(data.obs);
             }
         }
@@ -281,6 +252,7 @@
         if (socket.connected) {
             socket.emit('playerAction', {
                 type: 'updatePos',
+                room: gameRoom,
                 id: myId,
                 lane: player.lane,
                 x: player.x,
@@ -291,39 +263,23 @@
         }
     }
 
-    // ==========================================
-    // 【游戏核心逻辑】保留原版换胎、难度等所有功能
-    // ==========================================
-    let score = 0;
-    let gameLoop;
-    let isPlaying = false;
-    
-    let speedMultiplier = 1;
-    let baseSpeed = 3; 
-    let currentScrollSpeed = 0; 
 
-    let currentDifficulty = 'normal';
-    let maxObstacles = 1;
-    let spawnChance = 0.015;
-    let homingChance = 0.2; 
-    let safeDistance = 350; 
+    // ==========================================
+    // 【游戏核心逻辑 - 完美保留你的代码】
+    // ==========================================
+    let score = 0; let gameLoop; let isPlaying = false;
+    let speedMultiplier = 1; let baseSpeed = 3; let currentScrollSpeed = 0; 
+    let currentDifficulty = 'normal'; let maxObstacles = 1; let spawnChance = 0.015;
+    let homingChance = 0.2; let safeDistance = 350; 
 
-    const roadOffsetX = 120; 
-    const laneWidth = 120;
+    const roadOffsetX = 120; const laneWidth = 120;
     
     const player = {
-        lane: 1, 
-        x: roadOffsetX + 1 * laneWidth + laneWidth / 2, 
-        y: canvas.height - 110,
-        width: 50,
-        height: 90,
-        color: '#3498db',
-        angle: 0
+        lane: 1, x: roadOffsetX + 1 * laneWidth + laneWidth / 2, y: canvas.height - 110,
+        width: 50, height: 90, color: '#3498db', angle: 0
     };
 
-    let obstacles = [];
-    let lines = [0, 150, 300, 450, 600];
-    let keyProcessed = false;
+    let obstacles = []; let lines = [0, 150, 300, 450, 600]; let keyProcessed = false;
 
     const tireColors = {
         'red': '#e74c3c',
@@ -338,21 +294,12 @@
         'red': { speed: 0.7, wear: 2.0 }
     };
 
-    let currentTire = 'white';
-    let tireHealth = 100;
-    let tireDecayRate = 0.016; 
-    let isBlowout = false;
-    let tapCount = 0;
-    let targetTapDirection = null;
-    let blowoutPitCooldown = 0;
+    let currentTire = 'white'; let tireHealth = 100; let tireDecayRate = 0.016; 
+    let isBlowout = false; let tapCount = 0; let targetTapDirection = null; let blowoutPitCooldown = 0;
     
-    let activePitSide = null; 
-    let pitTimer = 0; 
-    let hasTriggeredPit = false; 
+    let activePitSide = null; let pitTimer = 0; let hasTriggeredPit = false; 
     
-    let pitState = 0; 
-    let pitProgress = 0; 
-    let tireSelectionEndTime = 0; // 记录绝对时间的结束点
+    let pitState = 0; let pitProgress = 0; let tireSelectionEndTime = 0;
 
     function tryMoveLeft() {
         if (player.lane > 0) {
@@ -491,8 +438,8 @@
     function spawnObstacle() {
         if (obstacles.length >= maxObstacles || pitState > 0) return; 
         if (obstacles.length > 0 && obstacles[obstacles.length - 1].y < safeDistance) return; 
-
-        // 如果游戏中有对手，且自己被判定为客人，则跳过本地随机生成，纯靠接收房主数据
+        
+        // 联机修改：如果是客人且房间里有对手，不再自己生成障碍物，由房主下发
         if (!isHost && opponent) return;
 
         if (Math.random() < spawnChance) {
@@ -513,9 +460,9 @@
             
             obstacles.push(newObs);
             
-            // 房主专属：同步给客人
+            // 联机修改：房主把生成的障碍物同步给别人
             if (socket.connected) {
-                socket.emit('playerAction', { type: 'spawnObstacle', id: myId, obs: newObs });
+                socket.emit('playerAction', { type: 'spawnObstacle', room: gameRoom, id: myId, obs: newObs });
             }
         }
     }
@@ -707,7 +654,7 @@
             
             // --- 画出联机对手 ---
             if (opponent) {
-                drawCar(opponent.x, opponent.y, '#e67e22', opponent.angle, opponent.currentTire || 'default');
+                drawCar(opponent.x, opponent.y, '#e67e22', opponent.angle, opponent.currentTire);
                 ctx.fillStyle = '#e67e22';
                 ctx.font = 'bold 14px Arial';
                 ctx.textAlign = 'center';
