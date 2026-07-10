@@ -72,11 +72,23 @@
         #loginBtn:hover {
             background: #3bc053;
         }
+        #loginBtn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
         .tip-text {
             color: #ff7777;
             font-size: 14px;
             margin-top: 12px;
             display: none;
+        }
+        .reg-tip {
+            margin-top: 18px;
+            font-size:14px;
+        }
+        .reg-tip a {
+            color:#4cd964;
+            text-decoration:none;
         }
     </style>
 </head>
@@ -95,8 +107,9 @@
             <label>密码</label>
             <input type="password" id="pwd" placeholder="请输入密码">
         </div>
-        <div class="tip-text" id="tip">请填写完整昵称、邮箱和密码！</div>
+        <div class="tip-text" id="tip"></div>
         <button id="loginBtn">登录进入游戏合集</button>
+        <div class="reg-tip">没有账号？<a href="register.html">前往注册</a></div>
     </div>
 
     <script>
@@ -105,13 +118,37 @@
         const email = document.getElementById('email');
         const pwd = document.getElementById('pwd');
         const tip = document.getElementById('tip');
+        // ========== 这里替换成你的服务器公网IP ==========
+        const SERVER_IP = "你的服务器公网IP";
+        const API_URL = `http://${SERVER_IP}:3000`;
 
-        // 已经登录过直接跳主页
-        if(localStorage.getItem('gameUser')){
-            location.href = "index.html";
+        // 页面加载校验登录token，已登录直接跳主页
+        if(localStorage.getItem('token')){
+            verifyToken();
         }
 
-        loginBtn.addEventListener('click', ()=>{
+        // 校验登录令牌是否有效
+        async function verifyToken(){
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/api/auth`, {
+                headers: { token }
+            });
+            const data = await res.json();
+            if(data.code === 200){
+                location.href = "index.html";
+            }else{
+                localStorage.removeItem('token');
+                localStorage.removeItem('userInfo');
+            }
+        }
+
+        // 邮箱格式校验
+        function checkEmail(emailStr) {
+            const reg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/;
+            return reg.test(emailStr);
+        }
+
+        loginBtn.addEventListener('click', async ()=>{
             const nameVal = nickname.value.trim();
             const emailVal = email.value.trim();
             const pwdVal = pwd.value.trim();
@@ -119,17 +156,45 @@
 
             // 空值校验
             if(!nameVal || !emailVal || !pwdVal) {
+                tip.innerText = "请填写完整昵称、邮箱和密码！";
                 tip.style.display = 'block';
                 return;
             }
-            // 本地存储登录信息
-            localStorage.setItem('gameUser', JSON.stringify({
-                nick: nameVal,
-                email: emailVal,
-                pass: pwdVal
-            }));
-            // 登录成功跳转主页
-            location.href = "index.html";
+            // 邮箱格式校验
+            if(!checkEmail(emailVal)){
+                tip.innerText = "邮箱格式不正确";
+                tip.style.display = 'block';
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.innerText = "登录请求中...";
+
+            try {
+                // 请求后端登录接口
+                const res = await fetch(`${API_URL}/api/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nick: nameVal, email: emailVal, pass: pwdVal })
+                });
+                const result = await res.json();
+                if(result.code === 200){
+                    // 存储后端下发的登录凭证
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('userInfo', JSON.stringify(result.user));
+                    setTimeout(()=>location.href="index.html", 600);
+                }else{
+                    tip.innerText = result.msg;
+                    tip.style.display = 'block';
+                    loginBtn.disabled = false;
+                    loginBtn.innerText = "登录进入游戏合集";
+                }
+            } catch (err) {
+                tip.innerText = "无法连接服务器，请确认服务已启动";
+                tip.style.display = 'block';
+                loginBtn.disabled = false;
+                loginBtn.innerText = "登录进入游戏合集";
+            }
         })
     </script>
 </body>
