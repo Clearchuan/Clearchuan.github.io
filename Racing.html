@@ -12,7 +12,7 @@
         body {
             margin: 0;
             padding: 0;
-            display: flex;
+            display: flex; 
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -325,7 +325,7 @@
         <h1>2D RACING v6.3.2</h1>
         <p class="controls">
             新服务器联机版<br>
-            当前服务器：42.192.106.162:3000
+            当前服务器：42.192.106.162:3001
         </p>
         <button class="diff-btn btn-normal" onclick="selectMode('single')">单机模式 (硬核1命)</button>
         <button class="diff-btn" style="background-color: #9b59b6;" onclick="selectMode('multi')">联机对战 (组队3命)</button>
@@ -336,7 +336,7 @@
         <h1>联机大厅</h1>
         <p class="controls">
             请输入房间号与队友汇合<br>
-            <span style="color:#2ecc71;">新服务器：42.192.106.162:3000</span>
+            <span style="color:#2ecc71;">新服务器：42.192.106.162:3001</span>
         </p>
         <input
             type="text"
@@ -394,7 +394,7 @@
 
 <script>
     const CLIENT_VERSION = '2D RACING v6.3.2 - 新服务器联机版';
-    const SERVER_URL = 'http://42.192.106.162:3000';
+    const SERVER_URL = 'http://42.192.106.162:3001';
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -429,13 +429,13 @@
     // ==========================================
 
     const socket = io(SERVER_URL, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        timeout: 6000
-    });
+    transports: ['polling', 'websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000
+});
 
     let gameMode = 'single';
     let myId = null;
