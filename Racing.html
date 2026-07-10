@@ -356,18 +356,285 @@
     const waitPrompt = document.getElementById('waitPrompt');
     const startScreenTitle = document.getElementById('startScreenTitle');
 
-    // ==========================================
-    // 【网络通信核心模块 - v6.2 主机权威同步】
-    // ==========================================
+   // ==========================================
+// 【网络通信核心模块 - v6.3 新服务器版】
+// ==========================================
 
-    const SERVER_URL = 'https://game-server-279669-6-1409195771.sh.run.tcloudbase.com';
-    const socket = io(SERVER_URL, { transports: ['websocket'] });
+// ======================================================
+// 【这里改了 1】服务器地址已改为组长的新服务器 IP
+// ------------------------------------------------------
+// 当前写法默认你的 Socket.io 后端运行在 3000 端口：
+// http://42.192.106.162:3000
+//
+// 如果组长告诉你端口不是 3000，比如是 8080，
+// 那就改成：
+// http://42.192.106.162:8080
+//
+// 如果后面配置了 HTTPS 域名，比如：
+// https://game.xxx.com
+// 那就改成对应的 HTTPS 地址。
+// ======================================================
+const SERVER_URL = 'http://42.192.106.162:3000';
 
-    let gameMode = 'single';
-    let myId = null;
-    let opponent = null;
-    let gameRoom = '';
-    let isHost = true;
+// ======================================================
+// 【这里改了 2】增强 Socket.io 连接配置
+// ------------------------------------------------------
+// 1. 仍然使用 websocket，保持你原来的联机同步方式
+// 2. 增加自动重连
+// 3. 增加连接超时
+// 4. 增加调试信息，方便判断服务器是否连上
+// ======================================================
+const socket = io(SERVER_URL, {
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 5000
+});
+
+let gameMode = 'single';
+let myId = null;
+let opponent = null;
+let gameRoom = '';
+let isHost = true;
+
+let hasPeer = false;
+let syncFrameCounter = 0;
+let lastWorldSyncTime = 0;
+
+function isAuthority() {
+    return gameMode === 'single' || isHost;
+}
+
+// ======================================================
+// 【这里改了 3】连接成功提示改为新服务器提示
+// ------------------------------------------------------
+// 如果连接成功，左下角会显示：
+// 🟢 新服务器在线
+// 控制台也会打印 socket.id
+// ======================================================
+socket.on('connect', () => {
+    networkStatusElement.innerText = '🟢 新服务器在线：' + socket.id;
+    networkStatusElement.style.color = '#2ecc71';
+    myId = socket.id;
+
+    console.log('【赛车游戏】Socket.io 连接成功');
+    console.log('【赛车游戏】服务器地址:', SERVER_URL);
+    console.log('【赛车游戏】我的 Socket ID:', socket.id);
+});
+
+// ======================================================
+// 【这里改了 4】新增连接失败提示
+// ------------------------------------------------------
+// 如果端口没开、防火墙没放行、服务器没启动，
+// 这里会显示连接失败原因。
+// ======================================================
+socket.on('connect_error', (err) => {
+    networkStatusElement.innerText = '🔴 连接新服务器失败：' + err.message;
+    networkStatusElement.style.color = '#e74c3c';
+
+    console.error('【赛车游戏】Socket.io 连接失败');
+    console.error('【赛车游戏】服务器地址:', SERVER_URL);
+    console.error('【赛车游戏】错误信息:', err);
+});
+
+// ======================================================
+// 【这里改了 5】断开连接提示更明确
+// ======================================================
+socket.on('disconnect', (reason) => {
+    networkStatusElement.innerText = '🔴 与新服务器断开连接：' + reason;
+    networkStatusElement.style.color = '#e74c3c';
+
+    console.warn('【赛车游戏】Socket.io 已断开');
+    console.warn('【赛车游戏】断开原因:', reason);
+});
+
+function selectMode(mode) {
+    gameMode = mode;
+    modeScreen.style.display = 'none';
+
+    if (mode === 'single') {
+        networkStatusElement.style.display = 'none';
+        document.getElementById('livesBoard').style.display = 'none';
+        startScreen.style.display = 'flex';
+        startScreenTitle.innerText = "选择难度 (单命硬核)";
+    } else {
+        networkStatusElement.style.display = 'block';
+        document.getElementById('livesBoard').style.display = 'block';
+        roomScreen.style.display = 'flex';
+        waitPrompt.style.display = 'none';
+    }
+}
+
+function backToMode() {
+    roomScreen.style.display = 'none';
+    modeScreen.style.display = 'flex';
+    waitPrompt.style.display = 'none';
+}
+
+function joinRoom() {
+    if (!myId) {
+        alert("正在与服务器建立通信，请稍等1秒后再试！");
+        return;
+    }
+
+    const roomVal = document.getElementById('roomInput').value.trim();
+    if (!roomVal) return;
+
+    gameRoom = 'room_' + roomVal;
+    waitPrompt.style.display = 'block';
+
+    socket.emit('playerAction', {
+        type: 'joinRoom',
+        room: gameRoom,
+        id: myId
+    });
+
+    console.log('【赛车游戏】尝试加入房间:', gameRoom);
+}
+
+socket.on('playerAction', (data) => {
+    if (gameMode === 'single') return;
+    if (!data || data.id === myId) return;
+    if (data.room !== gameRoom) return;
+
+    if (data.type === 'joinRoom') {
+        hasPeer = true;
+        isHost = myId < data.id;
+
+        socket.emit('playerAction', {
+            type: 'roomAck',
+            room: gameRoom,
+            id: myId
+        });
+
+        enterDifficultyScreen();
+    }
+
+    else if (data.type === 'roomAck') {
+        hasPeer = true;
+        isHost = myId < data.id;
+        enterDifficultyScreen();
+    }
+
+    else if (data.type === 'startGameSync') {
+        startGame(data.difficulty, true);
+    }
+
+    else if (data.type === 'updatePos') {
+        if (!opponent) {
+            opponent = {
+                lane: 1,
+                x: roadOffsetX + laneWidth + laneWidth / 2,
+                y: canvas.height - 110,
+                angle: 0,
+                currentTire: 'yellow',
+                isDead: false,
+                inPit: false,
+                lives: 3
+            };
+        }
+
+        opponent.lane = data.lane;
+        opponent.x = data.x;
+        opponent.y = data.y;
+        opponent.angle = data.angle;
+        opponent.currentTire = data.currentTire || 'yellow';
+        opponent.isDead = !!data.isDead;
+        opponent.inPit = !!data.inPit;
+        opponent.lives = data.lives ?? opponent.lives;
+
+        if (isPlaying && isDead && opponent.isDead) {
+            gameOver('全军覆没 (TEAM WIPED OUT)');
+        }
+    }
+
+    else if (data.type === 'worldSync' && !isHost) {
+        // 非房主完全采纳房主世界状态
+        lastWorldSyncTime = performance.now();
+
+        score = data.score;
+        speedMultiplier = data.speedMultiplier;
+        currentScrollSpeed = data.currentScrollSpeed;
+        absoluteScroll = data.absoluteScroll;
+
+        obstacles = Array.isArray(data.obstacles)
+            ? data.obstacles.map(o => ({ ...o }))
+            : [];
+
+        scoreElement.innerText = score;
+    }
+
+    else if (data.type === 'forceGameOver') {
+        gameOver(data.reason || '全军覆没 (TEAM WIPED OUT)');
+    }
+});
+
+function enterDifficultyScreen() {
+    roomScreen.style.display = 'none';
+    waitPrompt.style.display = 'none';
+    startScreen.style.display = 'flex';
+
+    if (isHost) {
+        startScreenTitle.innerText = "匹配成功！请选择难度";
+        document.getElementById('difficultyButtons').style.pointerEvents = 'auto';
+        document.getElementById('difficultyButtons').style.opacity = '1';
+    } else {
+        startScreenTitle.innerText = "匹配成功！等待房主选择难度";
+        document.getElementById('difficultyButtons').style.pointerEvents = 'none';
+        document.getElementById('difficultyButtons').style.opacity = '0.45';
+    }
+}
+
+function broadcastMyPosition() {
+    if (gameMode !== 'multi' || !socket.connected || !gameRoom) return;
+
+    socket.emit('playerAction', {
+        type: 'updatePos',
+        room: gameRoom,
+        id: myId,
+        lane: player.lane,
+        x: player.x,
+        y: player.y,
+        angle: player.angle,
+        currentTire: currentTire,
+        isDead: isDead,
+        inPit: pitState > 0,
+        lives: lives
+    });
+}
+
+function broadcastWorldState() {
+    if (gameMode !== 'multi' || !isHost || !socket.connected || !gameRoom || !isPlaying) return;
+
+    syncFrameCounter++;
+
+    // 每 2 帧同步一次，约 30Hz。比每帧省流量，又足够稳定。
+    if (syncFrameCounter % 2 !== 0) return;
+
+    socket.emit('playerAction', {
+        type: 'worldSync',
+        room: gameRoom,
+        id: myId,
+        score: score,
+        speedMultiplier: speedMultiplier,
+        currentScrollSpeed: currentScrollSpeed,
+        absoluteScroll: absoluteScroll,
+        obstacles: obstacles.map(o => ({ ...o }))
+    });
+}
+
+function broadcastGameOver(reason) {
+    if (gameMode !== 'multi' || !socket.connected || !gameRoom) return;
+
+    socket.emit('playerAction', {
+        type: 'forceGameOver',
+        room: gameRoom,
+        id: myId,
+        reason: reason
+    });
+}
+
 
     let hasPeer = false;
     let syncFrameCounter = 0;
