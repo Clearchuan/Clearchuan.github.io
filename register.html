@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册账号</title>
+    <style>
+        * {margin:0; padding:0; box-sizing:border-box}
+        body {
+            background:#111;
+            background-image: url("bg.png");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-blend-mode: multiply;
+            background-color: rgba(0,0,0,0.65);
+            color:#fff;
+            text-align:center;
+            min-height: 100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .box {
+            width: 360px;
+            background: #222;
+            border: 2px solid #4cd964;
+            border-radius: 10px;
+            padding: 35px 25px;
+        }
+        .box h2 {
+            color: #4cd964;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .item {margin-bottom:20px;text-align:left;}
+        .item label {display:block;margin-bottom:8px;font-size:16px;}
+        .item input {
+            width:100%;height:42px;padding:0 12px;font-size:16px;
+            background:#111;border:1px solid #4cd964;border-radius:4px;color:#fff;outline:none;
+        }
+        #regBtn {
+            width:100%;height:46px;margin-top:10px;
+            background:#4cd964;color:#111;border:none;border-radius:4px;
+            font-size:20px;font-weight:bold;cursor:pointer;
+        }
+        #regBtn:disabled {background:#666;cursor:not-allowed;}
+        .tip {color:#ff7777;font-size:14px;margin-top:12px;display:none;}
+        .back {margin-top:18px;font-size:14px;}
+        .back a {color:#4cd964;text-decoration:none;}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>注册游戏账号</h2>
+    <div class="item">
+        <label>昵称</label>
+        <input type="text" id="nick" placeholder="输入昵称">
+    </div>
+    <div class="item">
+        <label>邮箱</label>
+        <input type="email" id="email" placeholder="输入邮箱">
+    </div>
+    <div class="item">
+        <label>密码</label>
+        <input type="password" id="pwd" placeholder="输入密码">
+    </div>
+    <div class="tip" id="tip"></div>
+    <button id="regBtn">完成注册</button>
+    <div class="back">已有账号？<a href="login.html">去登录</a></div>
+</div>
+
+<script>
+const nick = document.getElementById("nick");
+const email = document.getElementById("email");
+const pwd = document.getElementById("pwd");
+const btn = document.getElementById("regBtn");
+const tip = document.getElementById("tip");
+// 替换为你的服务器公网IP
+const SERVER_IP = "42.192.106.162";
+const API_URL = `http://${SERVER_IP}:3000`;
+
+function checkEmail(s) {
+    return /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(s);
+}
+
+btn.onclick = async () => {
+    tip.style.display = "none";
+    const n = nick.value.trim();
+    const e = email.value.trim();
+    const p = pwd.value.trim();
+    if(!n || !e || !p){
+        tip.innerText = "全部内容不能为空";
+        tip.style.display = "block";
+        return;
+    }
+    if(!checkEmail(e)){
+        tip.innerText = "邮箱格式错误";
+        tip.style.display = "block";
+        return;
+    }
+    btn.disabled = true;
+    btn.innerText = "注册中...";
+    try{
+        const res = await fetch(`${API_URL}/api/register`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({nick:n,email:e,pass:p})
+        });
+        const data = await res.json();
+        if(data.code === 200){
+            tip.style.color="#4cd964";
+            tip.innerText="注册成功，1秒跳转登录页";
+            tip.style.display="block";
+            setTimeout(()=>location.href="login.html",1000);
+        }else{
+            tip.innerText=data.msg;
+            tip.style.display="block";
+            btn.disabled=false;
+            btn.innerText="完成注册";
+        }
+    }catch(err){
+        tip.innerText="无法连接服务器，请确认服务已启动";
+        tip.style.display="block";
+        btn.disabled=false;
+        btn.innerText="完成注册";
+    }
+}
+</script>
+</body>
+</html>

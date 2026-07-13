@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 游戏合集</title>
+    <style>
+        * {margin:0; padding:0; box-sizing:border-box}
+        body {
+            background:#111;
+            background-image: url("bg.png");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-blend-mode: multiply;
+            background-color: rgba(0,0,0,0.65);
+            color:#fff;
+            text-align:center;
+            min-height: 100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        .login-box {
+            width: 360px;
+            background: #222;
+            border: 2px solid #4cd964;
+            border-radius: 10px;
+            padding: 35px 25px;
+        }
+        .login-box h2 {
+            color: #4cd964;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .login-item {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .login-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .login-item input {
+            width: 100%;
+            height: 42px;
+            padding: 0 12px;
+            font-size: 16px;
+            background: #111;
+            border: 1px solid #4cd964;
+            border-radius: 4px;
+            color: #fff;
+            outline: none;
+        }
+        .login-item input:focus {
+            box-shadow: 0 0 8px #4cd96477;
+        }
+        #loginBtn {
+            width: 100%;
+            height: 46px;
+            margin-top: 10px;
+            background: #4cd964;
+            color: #111;
+            border: none;
+            border-radius: 4px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #loginBtn:hover {
+            background: #3bc053;
+        }
+        #loginBtn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .tip-text {
+            color: #ff7777;
+            font-size: 14px;
+            margin-top: 12px;
+            display: none;
+        }
+        .reg-tip {
+            margin-top: 18px;
+            font-size:14px;
+        }
+        .reg-tip a {
+            color:#4cd964;
+            text-decoration:none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>游戏合集登录</h2>
+        <div class="login-item">
+            <label>昵称</label>
+            <input type="text" id="nickname" placeholder="请输入昵称">
+        </div>
+        <div class="login-item">
+            <label>电子邮箱</label>
+            <input type="email" id="email" placeholder="请输入邮箱">
+        </div>
+        <div class="login-item">
+            <label>密码</label>
+            <input type="password" id="pwd" placeholder="请输入密码">
+        </div>
+        <div class="tip-text" id="tip"></div>
+        <button id="loginBtn">登录进入游戏合集</button>
+        <div class="reg-tip">没有账号？<a href="register.html">前往注册</a></div>
+    </div>
+
+    <script>
+        const loginBtn = document.getElementById('loginBtn');
+        const nickname = document.getElementById('nickname');
+        const email = document.getElementById('email');
+        const pwd = document.getElementById('pwd');
+        const tip = document.getElementById('tip');
+        // ========== 这里替换成你的服务器公网IP ==========
+        const SERVER_IP = "42.192.106.162";
+        const API_URL = `http://${SERVER_IP}:3000`;
+
+        // 页面加载校验登录token，已登录直接跳主页
+        if(localStorage.getItem('token')){
+            verifyToken();
+        }
+
+        // 校验登录令牌是否有效
+        async function verifyToken(){
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${API_URL}/api/auth`, {
+                headers: { token }
+            });
+            const data = await res.json();
+            if(data.code === 200){
+                location.href = "index.html";
+            }else{
+                localStorage.removeItem('token');
+                localStorage.removeItem('userInfo');
+            }
+        }
+
+        // 邮箱格式校验
+        function checkEmail(emailStr) {
+            const reg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/;
+            return reg.test(emailStr);
+        }
+
+        loginBtn.addEventListener('click', async ()=>{
+            const nameVal = nickname.value.trim();
+            const emailVal = email.value.trim();
+            const pwdVal = pwd.value.trim();
+            tip.style.display = 'none';
+
+            // 空值校验
+            if(!nameVal || !emailVal || !pwdVal) {
+                tip.innerText = "请填写完整昵称、邮箱和密码！";
+                tip.style.display = 'block';
+                return;
+            }
+            // 邮箱格式校验
+            if(!checkEmail(emailVal)){
+                tip.innerText = "邮箱格式不正确";
+                tip.style.display = 'block';
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.innerText = "登录请求中...";
+
+            try {
+                // 请求后端登录接口
+                const res = await fetch(`${API_URL}/api/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nick: nameVal, email: emailVal, pass: pwdVal })
+                });
+                const result = await res.json();
+                if(result.code === 200){
+                    // 存储后端下发的登录凭证
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('userInfo', JSON.stringify(result.user));
+                    setTimeout(()=>location.href="index.html", 600);
+                }else{
+                    tip.innerText = result.msg;
+                    tip.style.display = 'block';
+                    loginBtn.disabled = false;
+                    loginBtn.innerText = "登录进入游戏合集";
+                }
+            } catch (err) {
+                tip.innerText = "无法连接服务器，请确认服务已启动";
+                tip.style.display = 'block';
+                loginBtn.disabled = false;
+                loginBtn.innerText = "登录进入游戏合集";
+            }
+        })
+    </script>
+</body>
+</html>
